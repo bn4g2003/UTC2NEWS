@@ -1,0 +1,54 @@
+# Dependencies
+**/node_modules/
+**/yarn.lock
+**/pnpm-lock.yaml
+
+# Build and Production
+**/dist/
+**/.next/
+**/build/
+**/out/
+**/.vercel
+**/.turbo
+**/*.tsbuildinfo
+
+# Environment and Secrets
+**/.env
+**/.env.local
+**/.env.development.local
+**/.env.test.local
+**/.env.production.local
+**/*.pem
+
+# Debug and Logs
+**/*.log
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/.pnpm-debug.log*
+**/logs/
+
+# Testing
+**/coverage/
+**/.nyc_output
+
+# IDE and Editors
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+**/.idea/
+**/*.swp
+**/*.swo
+**/*.sublime-workspace
+
+# OS Files
+**/.DS_Store
+**/Thumbs.db
+**/ehthumbs.db
+**/Desktop.ini
+
+# Prisma
+**/prisma/*.db
+**/prisma/*.db-journal
