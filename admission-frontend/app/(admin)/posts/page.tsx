@@ -12,15 +12,20 @@ import { ImageUpload } from '@/components/admin/ImageUpload';
 import { usePagination } from '@/hooks/usePagination';
 import { useModal } from '@/hooks/useModal';
 import { CmsService } from '@/api/services/CmsService';
-import { 
-  createPostSchema, 
-  updatePostSchema, 
+import {
+  createPostSchema,
+  updatePostSchema,
   generateSlug,
   PostStatus,
-  type CreatePostFormData, 
-  type UpdatePostFormData 
+  type CreatePostFormData,
+  type UpdatePostFormData
 } from './schema';
+import { FileUpload } from '@/components/admin/FileUpload/FileUpload';
 import type { Column, DataGridAction } from '@/components/admin/DataGrid/types';
+
+import { serializeAttachments, parseAttachments, stripAttachments } from '@/utils/post-attachments';
+
+
 
 interface Post {
   id: string;
@@ -61,11 +66,11 @@ export default function PostsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  
+
   const pagination = usePagination(10);
   const formDrawer = useModal();
   const deleteModal = useModal();
-  
+
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('create');
 
@@ -83,12 +88,12 @@ export default function PostsPage() {
   const fetchPosts = useCallback(async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const response = await CmsService.cmsControllerFindAllPosts();
-      
+
       let filteredPosts = response || [];
-      
+
       // Apply search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
@@ -98,17 +103,17 @@ export default function PostsPage() {
           (post.excerpt && post.excerpt.toLowerCase().includes(query))
         );
       }
-      
+
       // Apply status filter
       if (statusFilter !== 'all') {
         filteredPosts = filteredPosts.filter((post: Post) => post.status === statusFilter);
       }
-      
+
       // Apply category filter
       if (categoryFilter !== 'all') {
         filteredPosts = filteredPosts.filter((post: Post) => post.categoryId === categoryFilter);
       }
-      
+
       setPosts(filteredPosts);
       pagination.setTotal(filteredPosts.length);
     } catch (err) {
@@ -137,14 +142,14 @@ export default function PostsPage() {
       const cleanData = {
         title: data.title,
         slug: data.slug,
-        content: data.content,
+        content: data.content + serializeAttachments(data.attachments || []),
         categoryId: data.categoryId || undefined,
         excerpt: data.excerpt || undefined,
         featuredImage: data.featuredImage || undefined,
         status: data.status as any, // Cast to API enum type
         authorId: data.authorId,
       };
-      
+
       await CmsService.cmsControllerCreatePost(cleanData);
       message.success('Post created successfully');
       fetchPosts();
@@ -160,20 +165,20 @@ export default function PostsPage() {
   // Handle edit post
   const handleEdit = async (data: UpdatePostFormData) => {
     if (!selectedPost) return;
-    
+
     try {
       // Remove empty optional fields and cast to API type
       const cleanData = {
         title: data.title,
         slug: data.slug,
-        content: data.content,
+        content: data.content + serializeAttachments(data.attachments || []),
         categoryId: data.categoryId || undefined,
         excerpt: data.excerpt || undefined,
         featuredImage: data.featuredImage || undefined,
         status: data.status as any, // Cast to API enum type
         authorId: data.authorId,
       };
-      
+
       await CmsService.cmsControllerUpdatePost(selectedPost.id, cleanData);
       message.success('Post updated successfully');
       fetchPosts();
@@ -189,7 +194,7 @@ export default function PostsPage() {
   // Handle delete post
   const handleDelete = async () => {
     if (!selectedPost) return;
-    
+
     try {
       await CmsService.cmsControllerDeletePost(selectedPost.id);
       message.success('Post deleted successfully');
@@ -286,7 +291,7 @@ export default function PostsPage() {
       key: 'publishedAt',
       title: 'Published Date',
       dataIndex: 'publishedAt',
-      render: (value: string | undefined) => 
+      render: (value: string | undefined) =>
         value ? new Date(value).toLocaleDateString() : '-',
     },
     {
@@ -317,7 +322,7 @@ export default function PostsPage() {
   // Render form fields
   const renderFormFields = (form: any) => {
     const watchTitle = form.watch('title');
-    
+
     return (
       <Space direction="vertical" style={{ width: '100%' }} size="large">
         <div>
@@ -417,15 +422,40 @@ export default function PostsPage() {
           <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
             Featured Image
           </label>
-          <ImageUpload
-            value={form.watch('featuredImage')}
-            onChange={(url) => form.setValue('featuredImage', url)}
+          <Controller
+            name="featuredImage"
+            control={form.control}
+            render={({ field }) => (
+              <ImageUpload
+                value={field.value}
+                onChange={field.onChange}
+              />
+            )}
           />
           {form.formState.errors.featuredImage && (
             <div style={{ color: 'red', fontSize: '12px', marginTop: '4px' }}>
               {form.formState.errors.featuredImage.message}
             </div>
           )}
+        </div>
+
+        <div>
+          <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
+            Tài liệu đính kèm (Attachments)
+          </label>
+          <Controller
+            name="attachments"
+            control={form.control}
+            render={({ field }) => (
+              <FileUpload
+                value={field.value}
+                onChange={field.onChange}
+              />
+            )}
+          />
+          <div style={{ color: '#666', fontSize: '12px', marginTop: '4px' }}>
+            Upload content like PDF, DOCX, etc.
+          </div>
         </div>
 
         <div>
@@ -480,17 +510,19 @@ export default function PostsPage() {
         categoryId: '',
         featuredImage: '',
         status: PostStatus.DRAFT,
+        attachments: [],
       };
     }
-    
+
     return {
       title: selectedPost?.title || '',
       slug: selectedPost?.slug || '',
-      content: selectedPost?.content || '',
+      content: stripAttachments(selectedPost?.content || ''),
       excerpt: selectedPost?.excerpt || '',
       categoryId: selectedPost?.categoryId || '',
       featuredImage: selectedPost?.featuredImage || '',
       status: selectedPost?.status || PostStatus.DRAFT,
+      attachments: parseAttachments(selectedPost?.content || ''),
     };
   };
 

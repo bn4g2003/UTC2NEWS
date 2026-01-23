@@ -108,8 +108,8 @@ export default function NewsPage() {
             <button
               onClick={() => handleCategoryChange('all')}
               className={`px-8 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 ${selectedCategory === 'all'
-                  ? 'bg-[#003A8C] text-white shadow-xl shadow-blue-900/20 scale-105'
-                  : 'bg-slate-50 dark:bg-slate-800 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'
+                ? 'bg-[#003A8C] text-white shadow-xl shadow-blue-900/20 scale-105'
+                : 'bg-slate-50 dark:bg-slate-800 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'
                 }`}
             >
               Tất cả tin tức
@@ -119,8 +119,8 @@ export default function NewsPage() {
                 key={category.id}
                 onClick={() => handleCategoryChange(category.id)}
                 className={`px-8 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 ${selectedCategory === category.id
-                    ? 'bg-[#003A8C] text-white shadow-xl shadow-blue-900/20 scale-105'
-                    : 'bg-slate-50 dark:bg-slate-800 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'
+                  ? 'bg-[#003A8C] text-white shadow-xl shadow-blue-900/20 scale-105'
+                  : 'bg-slate-50 dark:bg-slate-800 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'
                   }`}
               >
                 {category.name}
@@ -146,9 +146,11 @@ export default function NewsPage() {
           </div>
         ) : currentPosts.length > 0 ? (
           <>
-            <div className="utc-grid py-12">
+            <div className="flex flex-col space-y-4 max-w-5xl mx-auto py-8">
               {currentPosts.map((post) => (
-                <NewsCard key={post.id} post={post} />
+                <div key={post.id} className="h-44 sm:h-52">
+                  <NewsCard post={post} />
+                </div>
               ))}
             </div>
 
@@ -159,8 +161,8 @@ export default function NewsPage() {
                   onClick={() => handlePageChange(currentPage - 1)}
                   disabled={currentPage === 1}
                   className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${currentPage === 1
-                      ? 'text-slate-300 cursor-not-allowed'
-                      : 'text-[#003A8C] hover:bg-white dark:hover:bg-slate-800 shadow-sm'
+                    ? 'text-slate-300 cursor-not-allowed'
+                    : 'text-[#003A8C] hover:bg-white dark:hover:bg-slate-800 shadow-sm'
                     }`}
                 >
                   ← Trước
@@ -172,8 +174,8 @@ export default function NewsPage() {
                       key={page}
                       onClick={() => handlePageChange(page)}
                       className={`w-10 h-10 rounded-xl text-xs font-black transition-all ${currentPage === page
-                          ? 'bg-[#003A8C] text-white shadow-lg'
-                          : 'text-slate-500 hover:bg-white dark:hover:bg-slate-800'
+                        ? 'bg-[#003A8C] text-white shadow-lg'
+                        : 'text-slate-500 hover:bg-white dark:hover:bg-slate-800'
                         }`}
                     >
                       {page}
@@ -185,8 +187,8 @@ export default function NewsPage() {
                   onClick={() => handlePageChange(currentPage + 1)}
                   disabled={currentPage === totalPages}
                   className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${currentPage === totalPages
-                      ? 'text-slate-300 cursor-not-allowed'
-                      : 'text-[#003A8C] hover:bg-white dark:hover:bg-slate-800 shadow-sm'
+                    ? 'text-slate-300 cursor-not-allowed'
+                    : 'text-[#003A8C] hover:bg-white dark:hover:bg-slate-800 shadow-sm'
                     }`}
                 >
                   Sau →

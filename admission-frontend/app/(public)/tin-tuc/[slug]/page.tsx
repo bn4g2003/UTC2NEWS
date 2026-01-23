@@ -9,6 +9,7 @@ import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';
 import { CmsService } from '@/api/services/CmsService';
+import { parseAttachments, stripAttachments } from '@/utils/post-attachments';
 
 interface Post {
   id: string;
@@ -182,18 +183,38 @@ export default function PostDetailPage() {
               )}
 
               {/* Content Body - Maximum Contrast Fix */}
-              <div className="prose prose-lg dark:prose-invert max-w-none 
-                prose-headings:text-gray-900 dark:prose-headings:text-white prose-headings:font-black prose-headings:uppercase
-                prose-p:text-gray-950 dark:prose-p:text-slate-100 prose-p:leading-relaxed prose-p:text-justify
-                prose-strong:text-black dark:prose-strong:text-white prose-strong:font-black
-                prose-a:text-[#003A8C] dark:prose-a:text-[#D4B106] prose-a:font-bold
-                prose-img:rounded-2xl prose-img:shadow-md
-                prose-blockquote:border-l-4 prose-blockquote:border-slate-200 dark:prose-blockquote:border-[#D4B106]
-                prose-li:text-gray-900 dark:prose-li:text-slate-100">
+              <div className="utc-post-content">
                 <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, rehypeSanitize]}>
-                  {post.content}
+                  {stripAttachments(post.content)}
                 </ReactMarkdown>
               </div>
+
+              {/* Attachments Section */}
+              {parseAttachments(post.content).length > 0 && (
+                <div className="mt-12 p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2 uppercase tracking-wide">
+                    <span className="text-[#D4B106]">📎</span> Tài liệu đính kèm
+                  </h3>
+                  <ul className="space-y-3">
+                    {parseAttachments(post.content).map((file, idx) => (
+                      <li key={idx}>
+                        <a
+                          href={file.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="group flex items-center gap-3 text-slate-600 dark:text-slate-300 hover:text-[#003A8C] dark:hover:text-[#D4B106] transition-colors p-2 rounded-lg hover:bg-white dark:hover:bg-slate-800"
+                        >
+                          <div className="w-8 h-8 flex items-center justify-center bg-white dark:bg-slate-800 rounded-lg shadow-sm group-hover:shadow text-xl">
+                            📄
+                          </div>
+                          <span className="font-medium text-sm">{file.name}</span>
+                          <span className="ml-auto text-xs bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded text-slate-500 group-hover:text-[#003A8C] dark:group-hover:text-[#D4B106]">Tải xuống</span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {/* Share */}
               <div className="mt-16 pt-8 border-t border-slate-100 dark:border-slate-800">
@@ -261,7 +282,7 @@ export default function PostDetailPage() {
           </aside>
 
         </div>
-      </div>
-    </div>
+      </div >
+    </div >
   );
 }

@@ -25,6 +25,9 @@ import {
   FolderOutlined,
   QuestionCircleOutlined,
   PictureOutlined,
+  SettingOutlined,
+  DatabaseOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTES, PERMISSIONS } from '@/config/constants';
@@ -78,21 +81,41 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
   const menuItems: MenuItem[] = [
     createMenuItem('Dashboard', ROUTES.ADMIN.DASHBOARD, <DashboardOutlined />),
 
-    // User Management Section
-    createMenuItem('Quản lý người dùng', ROUTES.ADMIN.USERS, <UserOutlined />, undefined, PERMISSIONS.USERS.READ),
-    createMenuItem('Vai trò & Quyền', ROUTES.ADMIN.ROLES, <TeamOutlined />, undefined, PERMISSIONS.ROLES.READ),
+    // System Management Group
+    createMenuItem(
+      'Hệ thống',
+      'system',
+      <SettingOutlined />,
+      [
+        createMenuItem('Quản lý người dùng', ROUTES.ADMIN.USERS, <UserOutlined />, undefined, PERMISSIONS.USERS.READ),
+        createMenuItem('Vai trò & Quyền', ROUTES.ADMIN.ROLES, <TeamOutlined />, undefined, PERMISSIONS.ROLES.READ),
+      ]
+    ),
 
-    // Student & Program Management Section
-    createMenuItem('Quản lý thí sinh', ROUTES.ADMIN.STUDENTS, <SolutionOutlined />, undefined, PERMISSIONS.STUDENTS.READ),
-    createMenuItem('Quản lý nguyện vọng', ROUTES.ADMIN.PREFERENCES, <SolutionOutlined />, undefined, PERMISSIONS.STUDENTS.READ),
-    createMenuItem('Quản lý ngành', ROUTES.ADMIN.PROGRAMS, <BookOutlined />, undefined, PERMISSIONS.PROGRAMS.READ),
-    createMenuItem('Quản lý đợt tuyển sinh', ROUTES.ADMIN.SESSIONS, <CalendarOutlined />, undefined, PERMISSIONS.SESSIONS.READ),
+    // Admission Data Group
+    createMenuItem(
+      'Dữ liệu tuyển sinh',
+      'admission_data',
+      <DatabaseOutlined />,
+      [
+        createMenuItem('Quản lý đợt tuyển sinh', ROUTES.ADMIN.SESSIONS, <CalendarOutlined />, undefined, PERMISSIONS.SESSIONS.READ),
+        createMenuItem('Quản lý ngành', ROUTES.ADMIN.PROGRAMS, <BookOutlined />, undefined, PERMISSIONS.PROGRAMS.READ),
+        createMenuItem('Quản lý thí sinh', ROUTES.ADMIN.STUDENTS, <SolutionOutlined />, undefined, PERMISSIONS.STUDENTS.READ),
+        createMenuItem('Quản lý nguyện vọng', ROUTES.ADMIN.PREFERENCES, <SolutionOutlined />, undefined, PERMISSIONS.STUDENTS.READ),
+      ]
+    ),
 
-
-    // Admission Process Section
-    createMenuItem('Lọc ảo', ROUTES.ADMIN.FILTER, <FilterOutlined />, undefined, PERMISSIONS.FILTER.EXECUTE),
-    createMenuItem('Kết quả tuyển sinh', ROUTES.ADMIN.RESULTS, <FileTextOutlined />, undefined, PERMISSIONS.RESULTS.READ),
-    createMenuItem('Gửi email thông báo', ROUTES.ADMIN.EMAIL, <MailOutlined />, undefined, PERMISSIONS.EMAIL.SEND),
+    // Admission Process Group
+    createMenuItem(
+      'Quy trình xét tuyển',
+      'admission_process',
+      <ThunderboltOutlined />,
+      [
+        createMenuItem('Lọc ảo', ROUTES.ADMIN.FILTER, <FilterOutlined />, undefined, PERMISSIONS.FILTER.EXECUTE),
+        createMenuItem('Kết quả tuyển sinh', ROUTES.ADMIN.RESULTS, <FileTextOutlined />, undefined, PERMISSIONS.RESULTS.READ),
+        createMenuItem('Gửi email thông báo', ROUTES.ADMIN.EMAIL, <MailOutlined />, undefined, PERMISSIONS.EMAIL.SEND),
+      ]
+    ),
 
     // Content Management Section
     createMenuItem(
@@ -141,12 +164,33 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
   const filteredMenuItems = filterMenuByPermissions(menuItems);
 
   // Update selected keys based on current pathname
+  // Update selected keys based on current pathname
   useEffect(() => {
     // Set selected key based on pathname
     setSelectedKeys([pathname]);
 
     // Auto-expand parent menu if child is selected
-    if (pathname === '/posts' || pathname === '/categories' || pathname === '/faqs' || pathname === '/media') {
+    if (pathname === ROUTES.ADMIN.USERS || pathname === ROUTES.ADMIN.ROLES) {
+      setOpenKeys(['system']);
+    } else if (
+      pathname === ROUTES.ADMIN.SESSIONS ||
+      pathname === ROUTES.ADMIN.PROGRAMS ||
+      pathname === ROUTES.ADMIN.STUDENTS ||
+      pathname === ROUTES.ADMIN.PREFERENCES
+    ) {
+      setOpenKeys(['admission_data']);
+    } else if (
+      pathname === ROUTES.ADMIN.FILTER ||
+      pathname === ROUTES.ADMIN.RESULTS ||
+      pathname === ROUTES.ADMIN.EMAIL
+    ) {
+      setOpenKeys(['admission_process']);
+    } else if (
+      pathname === ROUTES.ADMIN.CMS.POSTS ||
+      pathname === ROUTES.ADMIN.CMS.CATEGORIES ||
+      pathname === ROUTES.ADMIN.CMS.FAQS ||
+      pathname === ROUTES.ADMIN.CMS.MEDIA
+    ) {
       setOpenKeys(['cms']);
     }
   }, [pathname]);
@@ -156,9 +200,17 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
     router.push(e.key);
   };
 
-  // Handle submenu open/close
+  // Root keys for accordion behavior
+  const rootSubmenuKeys = ['system', 'admission_data', 'admission_process', 'cms'];
+
+  // Handle submenu open/close with accordion effect
   const handleOpenChange = (keys: string[]) => {
-    setOpenKeys(keys);
+    const latestOpenKey = keys.find((key) => openKeys.indexOf(key) === -1);
+    if (latestOpenKey && rootSubmenuKeys.indexOf(latestOpenKey) === -1) {
+      setOpenKeys(keys);
+    } else {
+      setOpenKeys(latestOpenKey ? [latestOpenKey] : []);
+    }
   };
 
   return (

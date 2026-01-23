@@ -35,39 +35,49 @@ export const postSchema = z.object({
     .string()
     .min(1, 'Title is required')
     .max(200, 'Title must not exceed 200 characters'),
-  
+
   slug: slugSchema,
-  
+
   content: z
     .string()
     .min(1, 'Content is required')
     .max(50000, 'Content must not exceed 50000 characters'),
-  
+
   excerpt: z
     .string()
     .max(500, 'Excerpt must not exceed 500 characters')
     .default(''),
-  
+
   categoryId: z
     .string()
     .default('')
     .refine((val) => val === '' || z.string().uuid().safeParse(val).success, {
       message: 'Invalid category ID',
     }),
-  
+
   featuredImage: z
     .string()
     .default('')
     .refine((val) => val === '' || z.string().url().safeParse(val).success, {
       message: 'Invalid image URL',
     }),
-  
+
   status: z.enum(['draft', 'published']).default('draft'),
-  
+
   authorId: z
     .string()
     .uuid('Invalid author ID')
     .optional(),
+
+  attachments: z
+    .array(
+      z.object({
+        name: z.string(),
+        url: z.string()
+      })
+    )
+    .optional()
+    .default([]),
 });
 
 /**
