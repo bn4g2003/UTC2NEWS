@@ -8,6 +8,7 @@ import { UpdatePostDto } from './dto/update-post.dto';
 import { CreateFaqDto } from './dto/create-faq.dto';
 import { UpdateFaqDto } from './dto/update-faq.dto';
 import { PostStatus } from '@prisma/client';
+import { SearchService } from './search.service';
 
 @Injectable()
 export class CmsService {
@@ -16,7 +17,8 @@ export class CmsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storageService: MinioStorageService,
-  ) {}
+    private readonly searchService: SearchService,
+  ) { }
 
   // Category CRUD methods
   async createCategory(data: CreateCategoryDto) {
@@ -87,6 +89,10 @@ export class CmsService {
   }
 
   // Post CRUD methods
+  async searchPosts(query: string, limit = 5) {
+    return await this.searchService.search(query, limit);
+  }
+
   async createPost(data: CreatePostDto) {
     try {
       const postData: any = {
@@ -108,13 +114,22 @@ export class CmsService {
         postData.publishedAt = new Date();
       }
 
-      return await this.prisma.post.create({
+      const post = await this.prisma.post.create({
         data: postData,
         include: {
           category: true,
           author: true,
         },
       });
+
+      // Index post for vector search (don't fail creation if indexing fails)
+      try {
+        await this.searchService.indexPost(post.id, post.title, post.content);
+      } catch (e) {
+        this.logger.warn(`Failed to index post ${post.id}: ${e.message}`);
+      }
+
+      return post;
     } catch (error) {
       if (error.code === 'P2002') {
         throw new ConflictException('Post with this slug already exists');
@@ -184,7 +199,7 @@ export class CmsService {
         }
       }
 
-      return await this.prisma.post.update({
+      const post = await this.prisma.post.update({
         where: { id },
         data: updateData,
         include: {
@@ -192,7 +207,20 @@ export class CmsService {
           author: true,
         },
       });
+
+      // Update vector index
+      if (data.title || data.content) {
+        try {
+          await this.searchService.indexPost(post.id, post.title, post.content);
+        } catch (e) {
+          this.logger.warn(`Failed to update index for post ${post.id}: ${e.message}`);
+        }
+      }
+
+      return post;
     } catch (error) {
+      // ... catch block
+
       if (error.code === 'P2025') {
         throw new NotFoundException(`Post with ID ${id} not found`);
       }
@@ -309,12 +337,12 @@ export class CmsService {
         include: {
           uploader: uploadedBy
             ? {
-                select: {
-                  id: true,
-                  username: true,
-                  fullName: true,
-                },
-              }
+              select: {
+                id: true,
+                username: true,
+                fullName: true,
+              },
+            }
             : false,
         },
       });

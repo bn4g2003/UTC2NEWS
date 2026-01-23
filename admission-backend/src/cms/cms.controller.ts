@@ -12,6 +12,7 @@ import {
   UploadedFile,
   Request,
   BadRequestException,
+  Header,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery, ApiConsumes, ApiBody } from '@nestjs/swagger';
@@ -29,7 +30,7 @@ import { RequirePermissions } from '../rbac/decorators/require-permissions.decor
 @ApiTags('CMS')
 @Controller('cms')
 export class CmsController {
-  constructor(private readonly cmsService: CmsService) {}
+  constructor(private readonly cmsService: CmsService) { }
 
   // Category endpoints
   @Post('categories')
@@ -89,6 +90,16 @@ export class CmsController {
   }
 
   // Post endpoints
+  @Get('posts/search')
+  @ApiOperation({ summary: 'Search posts (Vector)', description: 'Semantic search for posts using Vector embeddings' })
+  @ApiQuery({ name: 'q', required: true, description: 'Search query' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Number of results (default: 5)' })
+  @ApiResponse({ status: 200, description: 'Search results retrieved successfully' })
+  async searchPosts(@Query('q') q: string, @Query('limit') limit?: number) {
+    if (!q) return [];
+    return await this.cmsService.searchPosts(q, limit ? Number(limit) : 5);
+  }
+
   @Post('posts')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions('posts:create')
@@ -108,6 +119,9 @@ export class CmsController {
   @ApiOperation({ summary: 'Get all posts', description: 'Retrieve all posts, optionally filter by published status (public)' })
   @ApiQuery({ name: 'published', required: false, description: 'Filter by published status (true/false)' })
   @ApiResponse({ status: 200, description: 'Posts retrieved successfully' })
+  @Header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+  @Header('Pragma', 'no-cache')
+  @Header('Expires', '0')
   async findAllPosts(@Query('published') published?: string) {
     const includePublishedOnly = published === 'true';
     return await this.cmsService.findAllPosts(includePublishedOnly);
@@ -250,13 +264,13 @@ export class CmsController {
     // Validate file type
     const allowedMimeTypes = [
       'image/jpeg',
-      'image/jpg', 
+      'image/jpg',
       'image/png',
       'image/gif',
       'image/webp',
       'application/pdf'
     ];
-    
+
     if (!allowedMimeTypes.includes(file.mimetype)) {
       throw new BadRequestException(`Invalid file type: ${file.mimetype}. Allowed types: ${allowedMimeTypes.join(', ')}`);
     }

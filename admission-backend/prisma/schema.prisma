@@ -93,6 +93,7 @@ model Post {
   featuredImage String?
   author        User?      @relation(fields: [authorId], references: [id])
   category      Category?  @relation(fields: [categoryId], references: [id])
+  embedding     Unsupported("vector(768)")?
 
   @@map("posts")
 }

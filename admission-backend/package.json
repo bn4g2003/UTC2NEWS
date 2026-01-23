@@ -28,6 +28,8 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@langchain/core": "^1.1.16",
+    "@langchain/google-genai": "^2.1.12",
     "@nestjs/bull": "^11.0.4",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
