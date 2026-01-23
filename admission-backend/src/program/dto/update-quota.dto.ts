@@ -1,5 +1,7 @@
-import { IsInt, Min, IsOptional } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsInt, Min, IsOptional, ValidateNested } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { QuotaConditionsDto } from './create-quota.dto';
 
 export class UpdateQuotaDto {
   @ApiProperty({
@@ -12,4 +14,13 @@ export class UpdateQuotaDto {
   @Min(1, { message: 'Quota must be a positive integer' })
   @IsOptional()
   quota?: number;
+
+  @ApiPropertyOptional({
+    description: 'Admission conditions and criteria',
+    type: QuotaConditionsDto,
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => QuotaConditionsDto)
+  conditions?: QuotaConditionsDto;
 }

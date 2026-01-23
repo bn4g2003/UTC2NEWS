@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,7 +7,239 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Enums
+model User {
+  id           String      @id @default(uuid())
+  username     String      @unique
+  passwordHash String
+  email        String      @unique
+  fullName     String
+  isActive     Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  mediaFiles   MediaFile[]
+  posts        Post[]
+  roles        UserRole[]
+
+  @@map("users")
+}
+
+model Permission {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  description String?
+  createdAt   DateTime         @default(now())
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+model Role {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  description String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  permissions RolePermission[]
+  users       UserRole[]
+
+  @@map("roles")
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId     String
+  roleId     String
+  assignedAt DateTime @default(now())
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model Category {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  posts       Post[]
+
+  @@map("categories")
+}
+
+model Post {
+  id            String     @id @default(uuid())
+  title         String
+  slug          String     @unique
+  content       String
+  categoryId    String?
+  status        PostStatus
+  authorId      String?
+  publishedAt   DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  excerpt       String?
+  featuredImage String?
+  author        User?      @relation(fields: [authorId], references: [id])
+  category      Category?  @relation(fields: [categoryId], references: [id])
+
+  @@map("posts")
+}
+
+model MediaFile {
+  id           String   @id @default(uuid())
+  filename     String
+  originalName String
+  mimeType     String
+  sizeBytes    Int
+  storagePath  String
+  uploadedBy   String?
+  createdAt    DateTime @default(now())
+  uploader     User?    @relation(fields: [uploadedBy], references: [id])
+
+  @@map("media_files")
+}
+
+model FAQ {
+  id           String   @id @default(uuid())
+  question     String
+  answer       String
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("faqs")
+}
+
+model Major {
+  id                  String         @id @default(uuid())
+  code                String         @unique
+  name                String
+  subjectCombinations Json
+  description         String?
+  isActive            Boolean        @default(true)
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  applications        Application[]
+  quotas              SessionQuota[]
+
+  @@map("majors")
+}
+
+model AdmissionSession {
+  id           String         @id @default(uuid())
+  name         String
+  year         Int
+  startDate    DateTime
+  endDate      DateTime
+  status       SessionStatus
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  applications Application[]
+  quotas       SessionQuota[]
+  students     Student[]
+
+  @@map("admission_sessions")
+}
+
+model SessionQuota {
+  id              String           @id @default(uuid())
+  sessionId       String
+  majorId         String
+  admissionMethod String
+  quota           Int
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  conditions      Json?
+  major           Major            @relation(fields: [majorId], references: [id], onDelete: Cascade)
+  session         AdmissionSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, majorId, admissionMethod])
+  @@map("session_quotas")
+}
+
+model Student {
+  id             String              @id @default(uuid())
+  idCard         String              @unique
+  fullName       String
+  dateOfBirth    DateTime
+  email          String?
+  phone          String?
+  address        String?
+  priorityPoints Decimal             @default(0) @db.Decimal(5, 2)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  documentPdf    String?
+  idCardPhoto    String?
+  photo3x4       String?
+  scores         Json?
+  sessionId      String
+  applications   Application[]
+  notifications  EmailNotification[]
+  session        AdmissionSession    @relation(fields: [sessionId], references: [id])
+
+  @@map("students")
+}
+
+model Application {
+  id                 String           @id @default(uuid())
+  studentId          String
+  sessionId          String
+  majorId            String
+  admissionMethod    String
+  preferencePriority Int
+  subjectScores      Json
+  calculatedScore    Decimal?         @db.Decimal(6, 2)
+  rankInMajor        Int?
+  admissionStatus    AdmissionStatus
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  major              Major            @relation(fields: [majorId], references: [id])
+  session            AdmissionSession @relation(fields: [sessionId], references: [id])
+  student            Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, sessionId, preferencePriority])
+  @@map("applications")
+}
+
+model EmailNotification {
+  id           String      @id @default(uuid())
+  studentId    String
+  email        String
+  templateName String
+  templateData Json
+  status       EmailStatus
+  attempts     Int         @default(0)
+  sentAt       DateTime?
+  lastError    String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  student      Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("email_notifications")
+}
+
+model Settings {
+  key         String   @id
+  value       Json
+  description String?
+  updatedAt   DateTime @updatedAt
+
+  @@map("settings")
+}
+
 enum PostStatus {
   draft
   published
@@ -33,259 +262,4 @@ enum EmailStatus {
   processing
   sent
   failed
-}
-
-// User and RBAC Models
-model User {
-  id           String   @id @default(uuid())
-  username     String   @unique
-  passwordHash String
-  email        String   @unique
-  fullName     String
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  
-  roles        UserRole[]
-  posts        Post[]
-  mediaFiles   MediaFile[]
-  
-  @@map("users")
-}
-
-model Permission {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  description String?
-  createdAt   DateTime @default(now())
-  
-  roles       RolePermission[]
-  
-  @@map("permissions")
-}
-
-model Role {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  permissions RolePermission[]
-  users       UserRole[]
-  
-  @@map("roles")
-}
-
-model RolePermission {
-  roleId       String
-  permissionId String
-  
-  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
-  
-  @@id([roleId, permissionId])
-  @@map("role_permissions")
-}
-
-model UserRole {
-  userId     String
-  roleId     String
-  assignedAt DateTime @default(now())
-  
-  user       User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role       Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  
-  @@id([userId, roleId])
-  @@map("user_roles")
-}
-
-// Content Management Models
-model Category {
-  id          String   @id @default(uuid())
-  name        String
-  slug        String   @unique
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  posts       Post[]
-  
-  @@map("categories")
-}
-
-model Post {
-  id             String     @id @default(uuid())
-  title          String
-  slug           String     @unique
-  content        String
-  excerpt        String?
-  featuredImage  String?
-  categoryId     String?
-  status         PostStatus
-  authorId       String?
-  publishedAt    DateTime?
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
-  
-  category    Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  author      User?     @relation(fields: [authorId], references: [id], onDelete: SetNull)
-  
-  @@map("posts")
-}
-
-model MediaFile {
-  id           String   @id @default(uuid())
-  filename     String
-  originalName String
-  mimeType     String
-  sizeBytes    Int
-  storagePath  String
-  uploadedBy   String?
-  createdAt    DateTime @default(now())
-  
-  uploader     User?    @relation(fields: [uploadedBy], references: [id], onDelete: SetNull)
-  
-  @@map("media_files")
-}
-
-model FAQ {
-  id           String   @id @default(uuid())
-  question     String
-  answer       String
-  displayOrder Int      @default(0)
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  
-  @@map("faqs")
-}
-
-// Program and Session Management Models
-model Major {
-  id                  String   @id @default(uuid())
-  code                String   @unique
-  name                String
-  subjectCombinations Json
-  description         String?
-  isActive            Boolean  @default(true)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  
-  quotas              SessionQuota[]
-  applications        Application[]
-  
-  @@map("majors")
-}
-
-model AdmissionSession {
-  id        String        @id @default(uuid())
-  name      String
-  year      Int
-  startDate DateTime
-  endDate   DateTime
-  status    SessionStatus
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-  
-  quotas       SessionQuota[]
-  applications Application[]
-  students     Student[]
-  
-  @@map("admission_sessions")
-}
-
-model SessionQuota {
-  id              String   @id @default(uuid())
-  sessionId       String
-  majorId         String
-  admissionMethod String
-  quota           Int
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
-  session         AdmissionSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  major           Major            @relation(fields: [majorId], references: [id], onDelete: Cascade)
-  
-  @@unique([sessionId, majorId, admissionMethod])
-  @@map("session_quotas")
-}
-
-// Student and Application Models
-model Student {
-  id              String   @id @default(uuid())
-  idCard          String   @unique
-  fullName        String
-  dateOfBirth     DateTime
-  email           String?
-  phone           String?
-  address         String?
-  priorityPoints  Decimal  @default(0) @db.Decimal(5, 2)
-  
-  // New fields for the updated flow
-  sessionId       String
-  scores          Json?    // To store all subject scores
-  photo3x4        String?  // Storage path or filename
-  idCardPhoto     String?  // Storage path or filename
-  documentPdf     String?  // Storage path or filename
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
-  session         AdmissionSession @relation(fields: [sessionId], references: [id], onDelete: Restrict)
-  applications    Application[]
-  notifications   EmailNotification[]
-  
-  @@map("students")
-}
-
-model Application {
-  id                 String          @id @default(uuid())
-  studentId          String
-  sessionId          String
-  majorId            String
-  admissionMethod    String
-  preferencePriority Int
-  subjectScores      Json
-  calculatedScore    Decimal?        @db.Decimal(6, 2)
-  rankInMajor        Int?
-  admissionStatus    AdmissionStatus
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
-  
-  student            Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  session            AdmissionSession @relation(fields: [sessionId], references: [id], onDelete: Restrict)
-  major              Major            @relation(fields: [majorId], references: [id], onDelete: Restrict)
-  
-  @@unique([studentId, sessionId, preferencePriority])
-  @@map("applications")
-}
-
-// Email Notification Model
-model EmailNotification {
-  id           String      @id @default(uuid())
-  studentId    String
-  email        String
-  templateName String
-  templateData Json
-  status       EmailStatus
-  attempts     Int         @default(0)
-  sentAt       DateTime?
-  lastError    String?
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  
-  student      Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  
-  @@map("email_notifications")
-}
-
-// Configuration Model
-model Settings {
-  key         String   @id
-  value       Json
-  description String?
-  updatedAt   DateTime @updatedAt
-  
-  @@map("settings")
 }

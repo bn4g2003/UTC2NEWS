@@ -11,7 +11,7 @@ import { UpdateQuotaDto } from './dto/update-quota.dto';
 export class ProgramService {
   private readonly logger = new Logger(ProgramService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   // Major CRUD methods
   async createMajor(data: CreateMajorDto) {
@@ -231,6 +231,7 @@ export class ProgramService {
           majorId: data.majorId,
           admissionMethod: data.admissionMethod,
           quota: data.quota,
+          conditions: data.conditions as any,
         },
         include: {
           session: true,
@@ -291,7 +292,10 @@ export class ProgramService {
 
       return await this.prisma.sessionQuota.update({
         where: { id },
-        data,
+        data: {
+          ...data,
+          conditions: data.conditions as any, // Cast to any to satisfy Prisma's InputJsonValue type
+        },
         include: {
           session: true,
           major: true,

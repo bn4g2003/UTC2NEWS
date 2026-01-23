@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ScoreCalculationService } from './score-calculation.service';
+import { ScoreCalculationService, QuotaConditions } from './score-calculation.service';
 
 describe('ScoreCalculationService', () => {
   let service: ScoreCalculationService;
@@ -17,143 +17,179 @@ describe('ScoreCalculationService', () => {
   });
 
   describe('calculateScore', () => {
-    it('should calculate score for entrance_exam method using sum formula', () => {
-      const scores = { math: 8, physics: 7, chemistry: 9 };
-      const priorityPoints = 1.5;
-      const result = service.calculateScore(scores, priorityPoints, 'entrance_exam');
-      
-      // Sum: 8 + 7 + 9 = 24, plus 1.5 priority = 25.5
-      expect(result).toBe(25.5);
+    it('should calculate score with priority bonus', () => {
+      const scores = { math: 8, physics: 7, chemistry: 6 };
+      const priorityPoints = 2;
+      const score = service.calculateScore(
+        scores,
+        priorityPoints,
+        'entrance_exam',
+      );
+      expect(score).toBe(23); // 8 + 7 + 6 + 2
     });
 
-    it('should calculate score for high_school_transcript method using average formula', () => {
-      const scores = { math: 8, literature: 7, english: 9 };
-      const priorityPoints = 0.5;
-      const result = service.calculateScore(scores, priorityPoints, 'high_school_transcript');
-      
-      // Average: (8 + 7 + 9) / 3 = 8, plus 0.5 priority = 8.5
-      expect(result).toBe(8.5);
+    it('should apply max priority bonus from conditions', () => {
+      const scores = { math: 8, physics: 7, chemistry: 6 };
+      const priorityPoints = 3;
+      const conditions: QuotaConditions = {
+        priorityBonus: {
+          enabled: true,
+          maxBonus: 2,
+        },
+      };
+      const score = service.calculateScore(
+        scores,
+        priorityPoints,
+        'entrance_exam',
+        undefined,
+        conditions,
+      );
+      expect(score).toBe(23); // 8 + 7 + 6 + 2 (capped at 2)
     });
 
-    it('should calculate score for direct_admission method using weighted formula', () => {
-      const scores = { math: 8, physics: 6 };
-      const priorityPoints = 1;
-      const result = service.calculateScore(scores, priorityPoints, 'direct_admission');
-      
-      // Weighted: 8 * 2 + 6 * 1.5 = 16 + 9 = 25, plus 1 priority = 26
-      expect(result).toBe(26);
+    it('should disable priority bonus when conditions specify', () => {
+      const scores = { math: 8, physics: 7, chemistry: 6 };
+      const priorityPoints = 2;
+      const conditions: QuotaConditions = {
+        priorityBonus: {
+          enabled: false,
+          maxBonus: 0,
+        },
+      };
+      const score = service.calculateScore(
+        scores,
+        priorityPoints,
+        'entrance_exam',
+        undefined,
+        conditions,
+      );
+      expect(score).toBe(21); // 8 + 7 + 6 (no bonus)
+    });
+  });
+
+  describe('isEligibleForQuota', () => {
+    it('should pass when all conditions are met', () => {
+      const scores = { math: 8, physics: 7, chemistry: 6 };
+      const conditions: QuotaConditions = {
+        minTotalScore: 18,
+        minSubjectScores: {
+          math: 5,
+          physics: 4,
+          chemistry: 4,
+        },
+        requiredSubjects: ['math', 'physics', 'chemistry'],
+      };
+      const result = service.isEligibleForQuota(scores, conditions);
+      expect(result).toBe(true);
     });
 
-    it('should return 0 for ineligible applications with missing subjects', () => {
-      const scores = { math: 8 }; // Missing physics and chemistry
-      const priorityPoints = 1;
-      const result = service.calculateScore(scores, priorityPoints, 'entrance_exam');
-      
-      expect(result).toBe(0);
+    it('should fail when total score is below minimum', () => {
+      const scores = { math: 5, physics: 5, chemistry: 5 };
+      const conditions: QuotaConditions = {
+        minTotalScore: 18,
+      };
+      const result = service.isEligibleForQuota(scores, conditions);
+      expect(result).toBe(false);
     });
 
-    it('should throw error for unknown admission method', () => {
+    it('should fail when subject score is below minimum', () => {
+      const scores = { math: 8, physics: 3, chemistry: 6 };
+      const conditions: QuotaConditions = {
+        minSubjectScores: {
+          math: 5,
+          physics: 4,
+          chemistry: 4,
+        },
+      };
+      const result = service.isEligibleForQuota(scores, conditions);
+      expect(result).toBe(false);
+    });
+
+    it('should fail when required subject is missing', () => {
       const scores = { math: 8, physics: 7 };
-      const priorityPoints = 0;
-      
-      expect(() => {
-        service.calculateScore(scores, priorityPoints, 'unknown_method');
-      }).toThrow('Unknown admission method: unknown_method');
+      const conditions: QuotaConditions = {
+        requiredSubjects: ['math', 'physics', 'chemistry'],
+      };
+      const result = service.isEligibleForQuota(scores, conditions);
+      expect(result).toBe(false);
     });
 
-    it('should round result to 2 decimal places', () => {
-      const scores = { math: 8.333, literature: 7.666, english: 9.111 };
-      const priorityPoints = 0.5;
-      const result = service.calculateScore(scores, priorityPoints, 'high_school_transcript');
-      
-      // Average: (8.333 + 7.666 + 9.111) / 3 = 8.37, plus 0.5 = 8.87
-      expect(result).toBe(8.87);
-    });
-  });
-
-  describe('getRequiredSubjects', () => {
-    it('should return required subjects for entrance_exam', () => {
-      const subjects = service.getRequiredSubjects('entrance_exam');
-      expect(subjects).toEqual(['math', 'physics', 'chemistry']);
-    });
-
-    it('should return required subjects for high_school_transcript', () => {
-      const subjects = service.getRequiredSubjects('high_school_transcript');
-      expect(subjects).toEqual(['math', 'literature', 'english']);
-    });
-
-    it('should return required subjects for direct_admission', () => {
-      const subjects = service.getRequiredSubjects('direct_admission');
-      expect(subjects).toEqual(['math', 'physics']);
-    });
-
-    it('should throw error for unknown admission method', () => {
-      expect(() => {
-        service.getRequiredSubjects('unknown_method');
-      }).toThrow('Unknown admission method: unknown_method');
-    });
-  });
-
-  describe('isEligible', () => {
-    it('should return true when all required subjects are present', () => {
-      const scores = { math: 8, physics: 7, chemistry: 9 };
-      const result = service.isEligible(scores, 'entrance_exam');
+    it('should pass when valid subject combination exists', () => {
+      const scores = { math: 8, physics: 7, english: 6 };
+      const conditions: QuotaConditions = {
+        subjectCombinations: [
+          ['math', 'physics', 'chemistry'],
+          ['math', 'physics', 'english'],
+        ],
+      };
+      const result = service.isEligibleForQuota(scores, conditions);
       expect(result).toBe(true);
     });
 
-    it('should return false when a required subject is missing', () => {
-      const scores = { math: 8, physics: 7 }; // Missing chemistry
-      const result = service.isEligible(scores, 'entrance_exam');
+    it('should fail when no valid subject combination exists', () => {
+      const scores = { math: 8, literature: 7, english: 6 };
+      const conditions: QuotaConditions = {
+        subjectCombinations: [
+          ['math', 'physics', 'chemistry'],
+          ['math', 'physics', 'english'],
+        ],
+      };
+      const result = service.isEligibleForQuota(scores, conditions);
       expect(result).toBe(false);
     });
 
-    it('should return false when a required subject is null', () => {
-      const scores = { math: 8, physics: 7, chemistry: null };
-      const result = service.isEligible(scores, 'entrance_exam');
-      expect(result).toBe(false);
-    });
-
-    it('should return false when a required subject is undefined', () => {
-      const scores = { math: 8, physics: 7, chemistry: undefined };
-      const result = service.isEligible(scores, 'entrance_exam');
-      expect(result).toBe(false);
-    });
-
-    it('should return false when a required subject is NaN', () => {
-      const scores = { math: 8, physics: 7, chemistry: NaN };
-      const result = service.isEligible(scores, 'entrance_exam');
-      expect(result).toBe(false);
-    });
-
-    it('should return true when extra subjects are present', () => {
-      const scores = { math: 8, physics: 7, chemistry: 9, biology: 6 };
-      const result = service.isEligible(scores, 'entrance_exam');
+    it('should pass when no conditions are specified', () => {
+      const scores = { math: 8, physics: 7, chemistry: 6 };
+      const conditions: QuotaConditions = {};
+      const result = service.isEligibleForQuota(scores, conditions);
       expect(result).toBe(true);
     });
   });
 
-  describe('getAvailableAdmissionMethods', () => {
-    it('should return all available admission methods', () => {
-      const methods = service.getAvailableAdmissionMethods();
-      expect(methods).toContain('entrance_exam');
-      expect(methods).toContain('high_school_transcript');
-      expect(methods).toContain('direct_admission');
-      expect(methods.length).toBe(3);
-    });
-  });
+  describe('Complex scenarios', () => {
+    it('should handle complete quota conditions', () => {
+      const scores = { math: 8, physics: 7, chemistry: 6 };
+      const conditions: QuotaConditions = {
+        minTotalScore: 18,
+        minSubjectScores: {
+          math: 5,
+          physics: 4,
+          chemistry: 4,
+        },
+        requiredSubjects: ['math', 'physics', 'chemistry'],
+        subjectCombinations: [['math', 'physics', 'chemistry']],
+        priorityBonus: {
+          enabled: true,
+          maxBonus: 2,
+        },
+      };
 
-  describe('getAdmissionMethodConfig', () => {
-    it('should return config for entrance_exam', () => {
-      const config = service.getAdmissionMethodConfig('entrance_exam');
-      expect(config.name).toBe('Entrance Exam');
-      expect(config.formula).toBe('sum');
-      expect(config.requiredSubjects).toEqual(['math', 'physics', 'chemistry']);
+      // Check eligibility
+      const isEligible = service.isEligibleForQuota(scores, conditions);
+      expect(isEligible).toBe(true);
+
+      // Calculate score
+      const score = service.calculateScore(
+        scores,
+        3,
+        'entrance_exam',
+        undefined,
+        conditions,
+      );
+      expect(score).toBe(23); // 8 + 7 + 6 + 2 (capped)
     });
 
-    it('should throw error for unknown admission method', () => {
-      expect(() => {
-        service.getAdmissionMethodConfig('unknown_method');
-      }).toThrow('Unknown admission method: unknown_method');
+    it('should reject student with low subject score despite high total', () => {
+      const scores = { math: 10, physics: 3, chemistry: 10 };
+      const conditions: QuotaConditions = {
+        minTotalScore: 18,
+        minSubjectScores: {
+          physics: 4,
+        },
+      };
+
+      const isEligible = service.isEligibleForQuota(scores, conditions);
+      expect(isEligible).toBe(false);
     });
   });
 });

@@ -14,6 +14,7 @@ export interface ResultRow {
   majorName: string;
   admissionMethod: string;
   finalScore: number;
+  ranking: number;
   preference: number;
 }
 
@@ -22,7 +23,7 @@ export interface ResultRow {
  */
 @Injectable()
 export class ResultExportService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   /**
    * Generate Excel file containing admission results for a session
@@ -44,7 +45,7 @@ export class ResultExportService {
 
     // Create workbook and worksheet
     const workbook = XLSX.utils.book_new();
-    
+
     // Define headers
     const headers = [
       'Student ID',
@@ -52,8 +53,9 @@ export class ResultExportService {
       'Full Name',
       'Major Code',
       'Major Name',
-      'Admission Method',
+      'Khối/Tổ hợp',
       'Final Score',
+      'Ranking',
       'Preference',
     ];
 
@@ -68,6 +70,7 @@ export class ResultExportService {
         row.majorName,
         row.admissionMethod,
         row.finalScore,
+        row.ranking,
         row.preference,
       ]),
     ];
@@ -130,6 +133,7 @@ export class ResultExportService {
       majorName: application.major.name,
       admissionMethod: application.admissionMethod,
       finalScore: Number(application.calculatedScore || 0),
+      ranking: application.rankInMajor || 0,
       preference: application.preferencePriority,
     }));
 

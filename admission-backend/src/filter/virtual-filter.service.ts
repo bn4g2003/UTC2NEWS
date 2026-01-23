@@ -14,7 +14,7 @@ export class VirtualFilterService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly scoreCalculationService: ScoreCalculationService,
-  ) {}
+  ) { }
 
   /**
    * Main entry point for running the virtual filter algorithm
@@ -70,6 +70,28 @@ export class VirtualFilterService {
   }
 
   /**
+   * Map block codes to admission methods
+   * A00, A01, B00, C00 -> entrance_exam (thi đầu vào)
+   * D01, D07, D08, D09, D10 -> high_school_transcript (xét học bạ)
+   */
+  private mapBlockToAdmissionMethod(block: string): string {
+    const blockUpper = block.toUpperCase();
+    
+    // Blocks for entrance exam (mainly science/math blocks)
+    if (['A00', 'A01', 'B00', 'C00'].includes(blockUpper)) {
+      return 'entrance_exam';
+    }
+    
+    // Blocks for high school transcript (mainly include literature)
+    if (['D01', 'D07', 'D08', 'D09', 'D10'].includes(blockUpper)) {
+      return 'high_school_transcript';
+    }
+    
+    // Default to entrance_exam
+    return 'entrance_exam';
+  }
+
+  /**
    * Calculate scores for all applications in a session
    * @param sessionId - The admission session ID
    * @param tx - Prisma transaction client
@@ -78,6 +100,25 @@ export class VirtualFilterService {
     sessionId: string,
     tx: Prisma.TransactionClient,
   ): Promise<void> {
+    // Get session with all quotas first to avoid redundant fetching
+    const session = await tx.admissionSession.findUnique({
+      where: { id: sessionId },
+      include: {
+        quotas: true,
+      },
+    });
+
+    if (!session) {
+      throw new NotFoundException(`Admission session ${sessionId} not found`);
+    }
+
+    // Create quota map for quick lookup: majorId-admissionMethod -> quota
+    const quotaMap = new Map<string, any>();
+    for (const quota of session.quotas) {
+      const key = `${quota.majorId}-${quota.admissionMethod}`;
+      quotaMap.set(key, quota);
+    }
+
     // Get all applications for this session
     const applications = await tx.application.findMany({
       where: { sessionId },
@@ -94,18 +135,46 @@ export class VirtualFilterService {
       >;
       const priorityPoints = Number(application.student.priorityPoints);
 
-      // Calculate score
-      const calculatedScore = this.scoreCalculationService.calculateScore(
+      // Determine the actual admission method for quota lookup
+      // If admissionMethod is a block code (A00, D01, etc.), map it to the actual method
+      let actualMethod = application.admissionMethod;
+      
+      // Check if it's a block code (starts with letter followed by digits)
+      if (/^[A-Z]\d{2}$/i.test(actualMethod)) {
+        actualMethod = this.mapBlockToAdmissionMethod(actualMethod);
+      }
+      
+      const quotaKey = `${application.majorId}-${actualMethod}`;
+      const quota = quotaMap.get(quotaKey);
+      const conditions = quota?.conditions as any;
+
+      // Check basic eligibility (has required subjects)
+      const isBasicEligible = this.scoreCalculationService.isEligible(
         subjectScores,
-        priorityPoints,
         application.admissionMethod,
       );
 
-      // Check eligibility
-      const isEligible = this.scoreCalculationService.isEligible(
-        subjectScores,
-        application.admissionMethod,
-      );
+      // Check quota-specific conditions
+      const isQuotaEligible = conditions
+        ? this.scoreCalculationService.isEligibleForQuota(
+          subjectScores,
+          conditions,
+          application.admissionMethod,
+        )
+        : true;
+
+      const isEligible = isBasicEligible && isQuotaEligible;
+
+      // Calculate score with conditions
+      const calculatedScore = isEligible
+        ? this.scoreCalculationService.calculateScore(
+          subjectScores,
+          priorityPoints,
+          application.admissionMethod,
+          undefined,
+          conditions,
+        )
+        : 0;
 
       // Update application with calculated score
       await tx.application.update({
@@ -155,14 +224,20 @@ export class VirtualFilterService {
     let currentRank = 0;
 
     for (const app of applications) {
-      const majorMethodKey = `${app.majorId}-${app.admissionMethod}`;
+      // Map block code to actual admission method for grouping
+      let baseMethod = app.admissionMethod;
+      if (/^[A-Z]\d{2}$/i.test(baseMethod)) {
+        baseMethod = this.mapBlockToAdmissionMethod(baseMethod);
+      }
+      
+      const majorMethodKey = `${app.majorId}-${baseMethod}`;
       const prevKey = `${currentMajor}-${currentMethod}`;
 
       // Reset rank when we move to a new major-method combination
       if (majorMethodKey !== prevKey) {
         currentRank = 1;
         currentMajor = app.majorId;
-        currentMethod = app.admissionMethod;
+        currentMethod = baseMethod;
       } else {
         currentRank++;
       }
@@ -171,7 +246,7 @@ export class VirtualFilterService {
         applicationId: app.id,
         studentId: app.studentId,
         majorId: app.majorId,
-        admissionMethod: app.admissionMethod,
+        admissionMethod: baseMethod, // Store normalized method for decision logic
         priority: app.preferencePriority,
         calculatedScore: Number(app.calculatedScore),
         rank: currentRank,
@@ -194,92 +269,134 @@ export class VirtualFilterService {
    * @param tx - Prisma transaction client
    * @returns Array of admission decisions
    */
+  /**
+   * Process preferences using Score-Priority (Stable Matching) logic.
+   * Ensures that within each major/method, students are admitted based on score regardless of preference priority,
+   * while ensuring they only take a spot in their highest possible priority major.
+   * @param sessionId - The admission session ID
+   * @param rankedApps - Array of ranked applications
+   * @param tx - Prisma transaction client
+   * @returns Array of admission decisions
+   */
   async processPreferences(
     sessionId: string,
     rankedApps: RankedApplication[],
     tx: Prisma.TransactionClient,
   ): Promise<AdmissionDecision[]> {
-    const decisions: AdmissionDecision[] = [];
-    const admittedStudents = new Set<string>();
-
-    // Get quotas for this session
+    // 1. Get quotas for this session
     const quotas = await tx.sessionQuota.findMany({
       where: { sessionId },
     });
 
-    // Create quota tracking map: majorId-admissionMethod -> remaining quota
     const quotaMap = new Map<string, number>();
     for (const quota of quotas) {
       const key = `${quota.majorId}-${quota.admissionMethod}`;
       quotaMap.set(key, quota.quota);
     }
 
-    // Get maximum preference priority
-    const maxPriority = Math.max(...rankedApps.map((app) => app.priority));
+    // 2. Track rejection status for each application
+    // activeApps starts with all ranked applications
+    let activeApps = rankedApps.map(app => ({ ...app, isRejected: false }));
+    let changed = true;
 
-    // Process each preference level (NV1, NV2, NV3, ...)
-    for (let priority = 1; priority <= maxPriority; priority++) {
-      // Get applications for this preference level
-      const preferenceApps = rankedApps
-        .filter((app) => app.priority === priority)
-        .sort((a, b) => {
-          // Sort by major, then by rank (score)
-          if (a.majorId !== b.majorId) {
-            return a.majorId.localeCompare(b.majorId);
+    // 3. Iterative Stable Matching (Gale-Shapley style)
+    // In each round, students "propose" to their highest priority non-rejected application
+    while (changed) {
+      changed = false;
+
+      // Map to track who is currently applying to which major
+      // Key: MajorKey, Value: List of Applications
+      const majorProposals = new Map<string, typeof activeApps>();
+
+      // Each student "proposes" to their highest priority application that hasn't rejected them
+      const studentBestApp = new Map<string, number>(); // studentId -> priority
+
+      // Identify the current "best" active application for each student
+      for (const app of activeApps) {
+        if (app.isRejected) continue;
+
+        const currentBest = studentBestApp.get(app.studentId);
+        if (currentBest === undefined || app.priority < currentBest) {
+          studentBestApp.set(app.studentId, app.priority);
+        }
+      }
+
+      // Group proposals by major
+      for (const app of activeApps) {
+        if (app.isRejected) continue;
+        const bestPriority = studentBestApp.get(app.studentId);
+        if (bestPriority !== undefined && app.priority === bestPriority) {
+          const key = `${app.majorId}-${app.admissionMethod}`;
+          let majorQueue = majorProposals.get(key);
+          if (!majorQueue) {
+            majorQueue = [];
+            majorProposals.set(key, majorQueue);
           }
-          return a.rank - b.rank;
+          majorQueue.push(app);
+        }
+      }
+
+      // Each major rejects those beyond its quota
+      for (const [majorKey, proposals] of majorProposals.entries()) {
+        const quota = quotaMap.get(majorKey) || 0;
+
+        if (proposals.length > quota) {
+          // Sort proposals by score DESC, then studentId ASC (tie-breaker)
+          proposals.sort((a, b) => {
+            if (b.calculatedScore !== a.calculatedScore) {
+              return b.calculatedScore - a.calculatedScore;
+            }
+            return a.studentId.localeCompare(b.studentId);
+          });
+
+          // Reject those beyond quota
+          for (let i = quota; i < proposals.length; i++) {
+            const rejectedApp = proposals[i];
+            const appToMark = activeApps.find(a => a.applicationId === rejectedApp.applicationId);
+            if (appToMark && !appToMark.isRejected) {
+              appToMark.isRejected = true;
+              changed = true;
+            }
+          }
+        }
+      }
+    }
+
+    // 4. Final decisions based on stable state
+    const decisions: AdmissionDecision[] = [];
+
+    // Create a map of a student's best non-rejected priority for quick lookup
+    const studentFinalBest = new Map<string, number>();
+    for (const app of activeApps) {
+      if (!app.isRejected) {
+        const currentBest = studentFinalBest.get(app.studentId);
+        if (currentBest === undefined || app.priority < currentBest) {
+          studentFinalBest.set(app.studentId, app.priority);
+        }
+      }
+    }
+
+    // Final pass to collector decisions
+    for (const app of activeApps) {
+      const bestPriority = studentFinalBest.get(app.studentId);
+      const isActuallyBest = !app.isRejected && app.priority === bestPriority;
+
+      if (isActuallyBest) {
+        decisions.push({
+          applicationId: app.applicationId,
+          studentId: app.studentId,
+          majorId: app.majorId,
+          status: 'admitted',
+          admittedPreference: app.priority,
         });
-
-      // Process each application in rank order
-      for (const app of preferenceApps) {
-        // Skip if student already admitted
-        if (admittedStudents.has(app.studentId)) {
-          continue;
-        }
-
-        const quotaKey = `${app.majorId}-${app.admissionMethod}`;
-        const remainingQuota = quotaMap.get(quotaKey) || 0;
-
-        if (remainingQuota > 0) {
-          // Admit student
-          decisions.push({
-            applicationId: app.applicationId,
-            studentId: app.studentId,
-            majorId: app.majorId,
-            status: 'admitted',
-            admittedPreference: priority,
-          });
-
-          // Mark student as admitted
-          admittedStudents.add(app.studentId);
-
-          // Decrease quota
-          quotaMap.set(quotaKey, remainingQuota - 1);
-
-          // Remove student from all lower priority preferences
-          const lowerPriorityApps = rankedApps.filter(
-            (a) => a.studentId === app.studentId && a.priority > priority,
-          );
-
-          for (const lowerApp of lowerPriorityApps) {
-            decisions.push({
-              applicationId: lowerApp.applicationId,
-              studentId: lowerApp.studentId,
-              majorId: lowerApp.majorId,
-              status: 'not_admitted',
-              admittedPreference: null,
-            });
-          }
-        } else {
-          // Quota reached, mark as not admitted
-          decisions.push({
-            applicationId: app.applicationId,
-            studentId: app.studentId,
-            majorId: app.majorId,
-            status: 'not_admitted',
-            admittedPreference: null,
-          });
-        }
+      } else {
+        decisions.push({
+          applicationId: app.applicationId,
+          studentId: app.studentId,
+          majorId: app.majorId,
+          status: 'not_admitted',
+          admittedPreference: null,
+        });
       }
     }
 

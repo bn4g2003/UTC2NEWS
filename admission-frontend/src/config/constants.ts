@@ -71,6 +71,7 @@ export const ROUTES = {
     STUDENTS: '/students',
     PROGRAMS: '/programs',
     SESSIONS: '/sessions',
+    QUOTAS: '/quotas',
     PREFERENCES: '/preferences',
     IMPORT: '/import',
     FILTER: '/filter',

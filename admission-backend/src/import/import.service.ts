@@ -177,21 +177,39 @@ export class ImportService {
             throw new Error(`Không tìm thấy mã ngành: ${pref.majorCode}`);
           }
 
+          // Get subject scores based on block
+          const blockSubjects = pref.block ? this.getSubjectsForBlock(pref.block) : null;
+          const subjectScores: any = {};
+
+          if (blockSubjects && student.scores) {
+            const studentScores = student.scores as any;
+            blockSubjects.forEach(subject => {
+              if (studentScores[subject] !== undefined) {
+                subjectScores[subject] = studentScores[subject];
+              }
+            });
+          }
+
           // Calculate score if method is provided or student has scores
           const isEligible = this.scoreCalculationService.isEligible(
-            student.scores as any,
-            pref.admissionMethod || 'entrance_exam',
+            subjectScores,
+            'entrance_exam', // Always use entrance_exam as method
             pref.block
           );
 
           const calculatedScore = isEligible
             ? this.scoreCalculationService.calculateScore(
-              student.scores as any,
+              subjectScores,
               Number(student.priorityPoints),
-              pref.admissionMethod || 'entrance_exam',
+              'entrance_exam', // Always use entrance_exam as method
               pref.block
             )
             : null;
+
+          // Store as Method|Block to preserve both
+          const combinedMethod = pref.block
+            ? `${pref.admissionMethod || 'entrance_exam'}|${pref.block}`
+            : (pref.admissionMethod || 'entrance_exam');
 
           await tx.application.upsert({
             where: {
@@ -203,8 +221,8 @@ export class ImportService {
             },
             update: {
               majorId: major!.id,
-              admissionMethod: pref.block || pref.admissionMethod || 'entrance_exam',
-              subjectScores: student.scores as any,
+              admissionMethod: combinedMethod,
+              subjectScores: subjectScores,
               calculatedScore: calculatedScore,
               admissionStatus: isEligible ? 'pending' : 'not_admitted',
             },
@@ -212,9 +230,9 @@ export class ImportService {
               studentId: student.id,
               sessionId: sessionId,
               majorId: major!.id,
-              admissionMethod: pref.block || pref.admissionMethod || 'entrance_exam',
+              admissionMethod: combinedMethod,
               preferencePriority: pref.priority,
-              subjectScores: student.scores as any,
+              subjectScores: subjectScores,
               calculatedScore: calculatedScore,
               admissionStatus: isEligible ? 'pending' : 'not_admitted',
             },
@@ -236,5 +254,24 @@ export class ImportService {
         }]
       };
     }
+  }
+
+  /**
+   * Get subjects for a given block code
+   */
+  private getSubjectsForBlock(block: string): string[] | null {
+    const blockMap: Record<string, string[]> = {
+      'A00': ['math', 'physics', 'chemistry'],
+      'A01': ['math', 'physics', 'english'],
+      'B00': ['math', 'chemistry', 'biology'],
+      'C00': ['literature', 'history', 'geography'],
+      'D01': ['math', 'literature', 'english'],
+      'D07': ['math', 'chemistry', 'english'],
+      'D08': ['math', 'biology', 'english'],
+      'D09': ['math', 'geography', 'english'],
+      'D10': ['math', 'history', 'english'],
+    };
+
+    return blockMap[block?.toUpperCase()] || null;
   }
 }

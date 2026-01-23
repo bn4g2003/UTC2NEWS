@@ -19,7 +19,7 @@ import { RequirePermissions } from '../rbac/decorators/require-permissions.decor
 @Controller('sessions')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class ResultController {
-  constructor(private readonly resultExportService: ResultExportService) {}
+  constructor(private readonly resultExportService: ResultExportService) { }
 
   /**
    * Export admission results to Excel
@@ -28,14 +28,14 @@ export class ResultController {
   @Get(':id/results/export')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions('results:export')
-  @ApiOperation({ 
-    summary: 'Export admission results', 
-    description: 'Generate and download Excel file containing all admitted students for a session with their details (student info, major, method, score)' 
+  @ApiOperation({
+    summary: 'Export admission results',
+    description: 'Generate and download Excel file containing all admitted students for a session with their details (student info, major, method, score)'
   })
   @ApiParam({ name: 'id', description: 'Admission session ID' })
   @ApiProduces('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Excel file generated and downloaded successfully',
     content: {
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': {
@@ -70,5 +70,29 @@ export class ResultController {
 
     // Send the Excel file
     res.send(excelBuffer);
+  }
+
+  /**
+   * Get admission results as JSON
+   * GET /sessions/:id/results
+   */
+  @Get(':id/results')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions('results:read')
+  @ApiOperation({
+    summary: 'Get admission results as JSON',
+    description: 'Retrieve list of all admitted students for a session with their details'
+  })
+  @ApiParam({ name: 'id', description: 'Admission session ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Results retrieved successfully',
+  })
+  @ApiResponse({ status: 403, description: 'Forbidden - requires results:read permission' })
+  @ApiResponse({ status: 404, description: 'Session not found' })
+  async getResults(
+    @Param('id') sessionId: string,
+  ) {
+    return this.resultExportService.formatResultData(sessionId);
   }
 }

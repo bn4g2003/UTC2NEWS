@@ -27,8 +27,10 @@ interface ResultRecord {
   idCardNumber: string;
   program: string;
   programCode: string;
+  admissionMethod: string;
   score: number;
   ranking: number;
+  preference: number;
   status: 'accepted' | 'rejected' | 'pending';
 }
 
@@ -46,13 +48,13 @@ export default function ResultsPage() {
   // Fetch sessions from API (Requirement 14.1)
   const fetchSessions = useCallback(async () => {
     setLoading(true);
-    
+
     try {
       const response = await ProgramsService.programControllerFindAllSessions();
       const sessionsList = response.data || response || [];
-      
+
       setSessions(sessionsList);
-      
+
       // Auto-select first session if available
       if (sessionsList.length > 0 && !selectedSessionId) {
         setSelectedSessionId(sessionsList[0].id);
@@ -87,62 +89,28 @@ export default function ResultsPage() {
   // In a real implementation, this would call an API endpoint
   const fetchResults = useCallback(async () => {
     if (!selectedSessionId) return;
-    
+
     setLoading(true);
-    
+
     try {
-      // Mock data for demonstration
-      // In a real implementation, this would call an API endpoint like:
-      // const response = await ResultsService.getResults(selectedSessionId);
-      
-      const mockResults: ResultRecord[] = [
-        {
-          id: '1',
-          studentId: 'SV001',
-          fullName: 'Nguyễn Văn A',
-          idCardNumber: '001234567890',
-          program: 'Công nghệ thông tin',
-          programCode: 'CNTT',
-          score: 27.5,
-          ranking: 1,
-          status: 'accepted',
-        },
-        {
-          id: '2',
-          studentId: 'SV002',
-          fullName: 'Trần Thị B',
-          idCardNumber: '001234567891',
-          program: 'Kỹ thuật phần mềm',
-          programCode: 'KTPM',
-          score: 26.8,
-          ranking: 2,
-          status: 'accepted',
-        },
-        {
-          id: '3',
-          studentId: 'SV003',
-          fullName: 'Lê Văn C',
-          idCardNumber: '001234567892',
-          program: 'Khoa học máy tính',
-          programCode: 'KHMT',
-          score: 25.2,
-          ranking: 5,
-          status: 'pending',
-        },
-        {
-          id: '4',
-          studentId: 'SV004',
-          fullName: 'Phạm Thị D',
-          idCardNumber: '001234567893',
-          program: 'An toàn thông tin',
-          programCode: 'ATTT',
-          score: 23.5,
-          ranking: 10,
-          status: 'rejected',
-        },
-      ];
-      
-      setResults(mockResults);
+      const response = await ResultsService.resultControllerGetResults(selectedSessionId);
+      const data = response.data || response || [];
+
+      const formattedResults: ResultRecord[] = data.map((item: any) => ({
+        id: `${item.studentId}-${item.majorCode}`,
+        studentId: item.studentId,
+        fullName: item.fullName,
+        idCardNumber: item.idCard,
+        program: item.majorName,
+        programCode: item.majorCode,
+        admissionMethod: item.admissionMethod,
+        score: item.finalScore,
+        ranking: item.ranking,
+        preference: item.preference,
+        status: 'accepted',
+      }));
+
+      setResults(formattedResults);
     } catch (err) {
       message.error('Failed to load results');
       console.error('Error fetching results:', err);
@@ -182,11 +150,11 @@ export default function ResultsPage() {
         return false;
       }
     }
-    
+
     if (selectedStatus !== 'all' && result.status !== selectedStatus) {
       return false;
     }
-    
+
     return true;
   });
 
@@ -207,29 +175,29 @@ export default function ResultsPage() {
     try {
       // Call API to generate Excel file (Requirement 14.3)
       const blob = await ResultsService.resultControllerExportResults(selectedSessionId);
-      
+
       // Create download link and trigger download (Requirement 14.5)
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      
+
       // Get session name for filename
       const session = sessions.find(s => s.id === selectedSessionId);
       const filename = `admission_results_${session?.name || 'session'}_${new Date().toISOString().split('T')[0]}.xlsx`;
       link.download = filename;
-      
+
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       // Clean up
       window.URL.revokeObjectURL(url);
-      
+
       message.success('Results exported successfully');
     } catch (err: any) {
       // Handle export errors (Requirement 14.6)
       let errorMessage = 'Failed to export results';
-      
+
       if (err.status === 403) {
         errorMessage = 'You do not have permission to export results';
       } else if (err.status === 404) {
@@ -239,7 +207,7 @@ export default function ResultsPage() {
       } else if (err instanceof Error) {
         errorMessage = err.message;
       }
-      
+
       message.error(errorMessage);
       console.error('Error exporting results:', err);
     } finally {
@@ -273,6 +241,21 @@ export default function ResultsPage() {
       key: 'program',
       width: 200,
       render: (text, record) => `${text} (${record.programCode})`,
+    },
+    {
+      title: 'Khối/Tổ hợp',
+      dataIndex: 'admissionMethod',
+      key: 'admissionMethod',
+      width: 120,
+      align: 'center',
+    },
+    {
+      title: 'Preference',
+      dataIndex: 'preference',
+      key: 'preference',
+      width: 100,
+      align: 'center',
+      render: (pref: number) => `NV${pref}`,
     },
     {
       title: 'Score',
@@ -419,7 +402,7 @@ export default function ResultsPage() {
               >
                 Preview Results
               </Button>
-              
+
               <Button
                 type="default"
                 icon={<DownloadOutlined />}
@@ -430,7 +413,7 @@ export default function ResultsPage() {
               >
                 Export to Excel
               </Button>
-              
+
               <Button
                 icon={<ReloadOutlined />}
                 onClick={fetchResults}

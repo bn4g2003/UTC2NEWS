@@ -28,4 +28,27 @@ export class ResultsService {
             },
         });
     }
+
+    /**
+     * Get admission results as JSON
+     * Retrieve list of all admitted students for a session with their details
+     * @param id Admission session ID
+     * @returns any Results retrieved successfully
+     * @throws ApiError
+     */
+    public static resultControllerGetResults(
+        id: string,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/sessions/{id}/results',
+            path: {
+                'id': id,
+            },
+            errors: {
+                403: `Forbidden - requires results:read permission`,
+                404: `Session not found`,
+            },
+        });
+    }
 }

@@ -22,6 +22,7 @@ export { CreateSessionDto } from './models/CreateSessionDto';
 export type { CreateStudentDto } from './models/CreateStudentDto';
 export type { CreateUserDto } from './models/CreateUserDto';
 export type { LoginDto } from './models/LoginDto';
+export type { QuotaConditionsDto } from './models/QuotaConditionsDto';
 export type { SubjectScoresDto } from './models/SubjectScoresDto';
 export type { UpdateCategoryDto } from './models/UpdateCategoryDto';
 export type { UpdateFaqDto } from './models/UpdateFaqDto';
