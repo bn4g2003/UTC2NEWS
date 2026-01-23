@@ -310,7 +310,7 @@ export default function FilterPage() {
         style={{ marginBottom: '24px' }}
         loading={loading}
       >
-        <Space direction="vertical" style={{ width: '100%' }} size="large">
+        <Space orientation="vertical" style={{ width: '100%' }} size="large">
           <div>
             <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
               Chọn đợt tuyển sinh <span style={{ color: 'red' }}>*</span>
@@ -391,7 +391,7 @@ export default function FilterPage() {
                         if (!cond?.subjectCombinations || cond.subjectCombinations.length === 0) {
                           return <span className="text-gray-400 italic">Chưa cấu hình</span>;
                         }
-                        
+
                         return (
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                             {cond.subjectCombinations.map((comb: any, idx: number) => {
@@ -491,7 +491,7 @@ export default function FilterPage() {
       {/* Filter Progress */}
       {running && (
         <Card title="Đang xử lý" style={{ marginBottom: '24px' }}>
-          <Space direction="vertical" style={{ width: '100%' }} size="large">
+          <Space orientation="vertical" style={{ width: '100%' }} size="large">
             <Spin size="large" />
             <p style={{ textAlign: 'center', color: '#666' }}>
               Đang chạy thuật toán lọc ảo...
@@ -516,7 +516,7 @@ export default function FilterPage() {
             </Button>
           }
         >
-          <Space direction="vertical" style={{ width: '100%' }} size="middle">
+          <Space orientation="vertical" style={{ width: '100%' }} size="middle">
             <Alert
               message="Lọc ảo hoàn tất"
               description={`Thời gian xử lý: ${filterResult.executionTime}ms`}
@@ -585,7 +585,7 @@ export default function FilterPage() {
 
       {/* Information Card */}
       <Card title="Về thuật toán lọc ảo" type="inner">
-        <Space direction="vertical" style={{ width: '100%' }}>
+        <Space orientation="vertical" style={{ width: '100%' }}>
           <p>
             Thuật toán lọc ảo xử lý hồ sơ tuyển sinh dựa trên các tiêu chí sau:
           </p>
@@ -614,7 +614,7 @@ export default function FilterPage() {
         width={1200}
       >
         {filterResult && (
-          <Space direction="vertical" style={{ width: '100%' }} size="large">
+          <Space orientation="vertical" style={{ width: '100%' }} size="large">
             <div>
               <h4>Thống kê tổng quan</h4>
               <p>Tổng số thí sinh: {filterResult.totalStudents}</p>

@@ -14,6 +14,8 @@ import { createStudentSchema, updateStudentSchema, type CreateStudentFormData, t
 import type { Column, DataGridAction } from '@/components/admin/DataGrid/types';
 import dynamic from 'next/dynamic';
 
+import { useRouter } from 'next/navigation';
+
 // Lazy load import component
 const ImportStudentsModal = dynamic(() => import('./ImportStudentsModal'), { ssr: false });
 
@@ -42,6 +44,7 @@ export default function StudentsPage() {
   const formDrawer = useModal();
   const deleteModal = useModal();
   const importModal = useModal();
+  const router = useRouter();
 
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('create');
@@ -187,10 +190,9 @@ export default function StudentsPage() {
   };
 
   // Open view drawer with student data (read-only)
-  const openViewDrawer = (student: Student) => {
-    setViewMode('view');
-    setSelectedStudent(student);
-    formDrawer.open();
+  // Open detail page
+  const openDetailPage = (student: Student) => {
+    router.push(`/students/${student.id}`);
   };
 
   // Open delete confirmation
@@ -255,7 +257,7 @@ export default function StudentsPage() {
       key: 'view',
       label: 'View',
       icon: <EyeOutlined />,
-      onClick: openViewDrawer,
+      onClick: openDetailPage,
     },
     {
       key: 'edit',
@@ -277,7 +279,7 @@ export default function StudentsPage() {
     const isReadOnly = viewMode === 'view';
 
     return (
-      <Space direction="vertical" style={{ width: '100%' }} size="large">
+      <Space orientation="vertical" style={{ width: '100%' }} size="large">
         <div>
           <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
             ID Card Number <span style={{ color: 'red' }}>*</span>
@@ -646,6 +648,7 @@ export default function StudentsPage() {
           }}
         />
       )}
+
     </div>
   );
 }
