@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button, Space, Input, Select, Tag, DatePicker, InputNumber, message } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons';
 import { Controller } from 'react-hook-form';
@@ -28,36 +29,37 @@ interface Session {
 }
 
 export default function SessionsPage() {
+  const router = useRouter();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  
+
   const pagination = usePagination(10);
   const createModal = useModal();
   const editModal = useModal();
   const deleteModal = useModal();
-  
+
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
 
   // Fetch sessions from API (Requirement 11.1)
   const fetchSessions = useCallback(async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const response = await ProgramsService.programControllerFindAllSessions();
-      
+
       let filteredSessions = response.data || response || [];
-      
+
       // Apply status filter
       if (statusFilter !== 'all') {
         filteredSessions = filteredSessions.filter((session: Session) =>
           session.status === statusFilter
         );
       }
-      
+
       // Apply search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
@@ -66,7 +68,7 @@ export default function SessionsPage() {
           session.year.toString().includes(query)
         );
       }
-      
+
       setSessions(filteredSessions);
       pagination.setTotal(filteredSessions.length);
     } catch (err) {
@@ -95,21 +97,21 @@ export default function SessionsPage() {
         endDate: data.endDate,
         status: data.status as CreateSessionDto.status,
       };
-      
+
       await ProgramsService.programControllerCreateSession(dto);
       message.success('Session created successfully');
       fetchSessions();
       createModal.close();
     } catch (err: any) {
       let errorMessage = 'Failed to create session';
-      
+
       // Handle specific error cases
       if (err.status === 403) {
         errorMessage = 'You do not have permission to create sessions';
       } else if (err instanceof Error) {
         errorMessage = err.message;
       }
-      
+
       message.error(errorMessage);
       throw err;
     }
@@ -118,7 +120,7 @@ export default function SessionsPage() {
   // Handle edit session (Requirement 11.3)
   const handleEdit = async (data: UpdateSessionFormData) => {
     if (!selectedSession) return;
-    
+
     try {
       // Convert to API DTO format
       const dto: UpdateSessionDto = {
@@ -128,7 +130,7 @@ export default function SessionsPage() {
         endDate: data.endDate,
         status: data.status as UpdateSessionDto.status | undefined,
       };
-      
+
       await ProgramsService.programControllerUpdateSession(selectedSession.id, dto);
       message.success('Session updated successfully');
       fetchSessions();
@@ -136,7 +138,7 @@ export default function SessionsPage() {
       setSelectedSession(null);
     } catch (err: any) {
       let errorMessage = 'Failed to update session';
-      
+
       // Handle specific error cases
       if (err.status === 404) {
         errorMessage = 'Session not found';
@@ -145,7 +147,7 @@ export default function SessionsPage() {
       } else if (err instanceof Error) {
         errorMessage = err.message;
       }
-      
+
       message.error(errorMessage);
       throw err;
     }
@@ -154,7 +156,7 @@ export default function SessionsPage() {
   // Handle delete session (Requirement 11.5, 11.6)
   const handleDelete = async () => {
     if (!selectedSession) return;
-    
+
     try {
       await ProgramsService.programControllerDeleteSession(selectedSession.id);
       message.success('Session deleted successfully');
@@ -163,7 +165,7 @@ export default function SessionsPage() {
       setSelectedSession(null);
     } catch (err: any) {
       let errorMessage = 'Failed to delete session';
-      
+
       // Handle specific error cases (Requirement 11.6)
       if (err.status === 409) {
         errorMessage = `Cannot delete session "${selectedSession.name}" because it has associated students`;
@@ -174,7 +176,7 @@ export default function SessionsPage() {
       } else if (err instanceof Error) {
         errorMessage = err.message;
       }
-      
+
       message.error(errorMessage);
     }
   };
@@ -224,6 +226,17 @@ export default function SessionsPage() {
       title: 'Session Name',
       dataIndex: 'name',
       sortable: true,
+      render: (text, record) => (
+        <a
+          onClick={(e) => {
+            e.preventDefault();
+            router.push(`/sessions/${record.id}`);
+          }}
+          className="text-blue-600 hover:underline font-medium cursor-pointer"
+        >
+          {text}
+        </a>
+      ),
     },
     {
       key: 'year',
@@ -268,6 +281,12 @@ export default function SessionsPage() {
 
   // Define row actions
   const actions: DataGridAction<Session>[] = [
+    {
+      key: 'details',
+      label: 'Manage',
+      icon: <SearchOutlined />, // Using SearchOutlined as a generic "view details" icon as requested
+      onClick: (session) => router.push(`/sessions/${session.id}`),
+    },
     {
       key: 'edit',
       label: 'Edit',

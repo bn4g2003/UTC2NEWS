@@ -87,7 +87,7 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
     createMenuItem('Quản lý nguyện vọng', ROUTES.ADMIN.PREFERENCES, <SolutionOutlined />, undefined, PERMISSIONS.STUDENTS.READ),
     createMenuItem('Quản lý ngành', ROUTES.ADMIN.PROGRAMS, <BookOutlined />, undefined, PERMISSIONS.PROGRAMS.READ),
     createMenuItem('Quản lý đợt tuyển sinh', ROUTES.ADMIN.SESSIONS, <CalendarOutlined />, undefined, PERMISSIONS.SESSIONS.READ),
-    createMenuItem('Quản lý chỉ tiêu', ROUTES.ADMIN.QUOTAS, <CalendarOutlined />, undefined, PERMISSIONS.QUOTAS.READ),
+
 
     // Admission Process Section
     createMenuItem('Lọc ảo', ROUTES.ADMIN.FILTER, <FilterOutlined />, undefined, PERMISSIONS.FILTER.EXECUTE),
