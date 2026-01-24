@@ -83,17 +83,17 @@ export default function ProgramsPage() {
   const handleCreate = async (data: CreateProgramFormData) => {
     try {
       await ProgramsService.programControllerCreateMajor(data);
-      message.success('Program created successfully');
+      message.success('Tạo ngành thành công');
       fetchPrograms();
       createModal.close();
     } catch (err: any) {
-      let errorMessage = 'Failed to create program';
+      let errorMessage = 'Không thể tạo ngành';
       
       // Handle specific error cases
       if (err.status === 409) {
-        errorMessage = 'Program code already exists';
+        errorMessage = 'Mã ngành đã tồn tại';
       } else if (err.status === 403) {
-        errorMessage = 'You do not have permission to create programs';
+        errorMessage = 'Bạn không có quyền tạo ngành';
       } else if (err instanceof Error) {
         errorMessage = err.message;
       }
@@ -109,18 +109,18 @@ export default function ProgramsPage() {
     
     try {
       await ProgramsService.programControllerUpdateMajor(selectedProgram.id, data);
-      message.success('Program updated successfully');
+      message.success('Cập nhật ngành thành công');
       fetchPrograms();
       editModal.close();
       setSelectedProgram(null);
     } catch (err: any) {
-      let errorMessage = 'Failed to update program';
+      let errorMessage = 'Không thể cập nhật ngành';
       
       // Handle specific error cases
       if (err.status === 404) {
-        errorMessage = 'Program not found';
+        errorMessage = 'Không tìm thấy ngành';
       } else if (err.status === 403) {
-        errorMessage = 'You do not have permission to update programs';
+        errorMessage = 'Bạn không có quyền cập nhật ngành';
       } else if (err instanceof Error) {
         errorMessage = err.message;
       }
@@ -136,20 +136,20 @@ export default function ProgramsPage() {
     
     try {
       await ProgramsService.programControllerDeleteMajor(selectedProgram.id);
-      message.success('Program deleted successfully');
+      message.success('Xóa ngành thành công');
       fetchPrograms();
       deleteModal.close();
       setSelectedProgram(null);
     } catch (err: any) {
-      let errorMessage = 'Failed to delete program';
+      let errorMessage = 'Không thể xóa ngành';
       
       // Handle specific error cases (Requirement 10.6)
       if (err.status === 409) {
-        errorMessage = `Cannot delete program "${selectedProgram.name}" because it has associated students`;
+        errorMessage = `Không thể xóa ngành "${selectedProgram.name}" vì có thí sinh liên quan`;
       } else if (err.status === 404) {
-        errorMessage = 'Program not found';
+        errorMessage = 'Không tìm thấy ngành';
       } else if (err.status === 403) {
-        errorMessage = 'You do not have permission to delete programs';
+        errorMessage = 'Bạn không có quyền xóa ngành';
       } else if (err instanceof Error) {
         errorMessage = err.message;
       }
@@ -186,26 +186,26 @@ export default function ProgramsPage() {
   const columns: Column<Program>[] = [
     {
       key: 'code',
-      title: 'Code',
+      title: 'Mã ngành',
       dataIndex: 'code',
       sortable: true,
       width: '120px',
     },
     {
       key: 'name',
-      title: 'Program Name',
+      title: 'Tên ngành',
       dataIndex: 'name',
       sortable: true,
     },
     {
       key: 'description',
-      title: 'Description',
+      title: 'Mô tả',
       dataIndex: 'description',
       render: (value: string | undefined) => value || '-',
     },
     {
       key: 'quota',
-      title: 'Quota',
+      title: 'Chỉ tiêu',
       dataIndex: 'quota',
       render: (value: number | undefined, record: Program) => {
         const quota = value || 0;
@@ -216,7 +216,7 @@ export default function ProgramsPage() {
           <div>
             <div>{`${enrollment} / ${quota}`}</div>
             <div style={{ fontSize: '12px', color: '#666' }}>
-              {percentage}% filled
+              {percentage}% đã tuyển
             </div>
           </div>
         );
@@ -225,20 +225,20 @@ export default function ProgramsPage() {
     },
     {
       key: 'isActive',
-      title: 'Status',
+      title: 'Trạng thái',
       dataIndex: 'isActive',
       render: (value: boolean) => (
         <Tag color={value ? 'green' : 'red'}>
-          {value ? 'Active' : 'Inactive'}
+          {value ? 'Hoạt động' : 'Không hoạt động'}
         </Tag>
       ),
       width: '100px',
     },
     {
       key: 'createdAt',
-      title: 'Created At',
+      title: 'Ngày tạo',
       dataIndex: 'createdAt',
-      render: (value: string) => new Date(value).toLocaleDateString(),
+      render: (value: string) => new Date(value).toLocaleDateString('vi-VN'),
       width: '120px',
     },
   ];
@@ -247,13 +247,13 @@ export default function ProgramsPage() {
   const actions: DataGridAction<Program>[] = [
     {
       key: 'edit',
-      label: 'Edit',
+      label: 'Sửa',
       icon: <EditOutlined />,
       onClick: openEditModal,
     },
     {
       key: 'delete',
-      label: 'Delete',
+      label: 'Xóa',
       icon: <DeleteOutlined />,
       onClick: openDeleteModal,
       danger: true,
@@ -263,20 +263,20 @@ export default function ProgramsPage() {
   return (
     <div style={{ padding: '24px' }}>
       <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 600 }}>Programs Management</h1>
+        <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 600 }}>Quản lý Ngành học</h1>
         <Button
           type="primary"
           icon={<PlusOutlined />}
           onClick={createModal.open}
         >
-          Add Program
+          Thêm ngành
         </Button>
       </div>
 
       {/* Search and Filter Bar */}
       <Space style={{ marginBottom: '16px', width: '100%' }} size="middle">
         <Input
-          placeholder="Search by code, name, or description"
+          placeholder="Tìm kiếm theo mã, tên hoặc mô tả"
           prefix={<SearchOutlined />}
           style={{ width: 350 }}
           value={searchQuery}
@@ -284,14 +284,14 @@ export default function ProgramsPage() {
           allowClear
         />
         <Select
-          placeholder="Filter by status"
+          placeholder="Lọc theo trạng thái"
           style={{ width: 150 }}
           value={statusFilter}
           onChange={handleStatusFilterChange}
         >
-          <Select.Option value="all">All Status</Select.Option>
-          <Select.Option value="true">Active</Select.Option>
-          <Select.Option value="false">Inactive</Select.Option>
+          <Select.Option value="all">Tất cả</Select.Option>
+          <Select.Option value="true">Hoạt động</Select.Option>
+          <Select.Option value="false">Không hoạt động</Select.Option>
         </Select>
       </Space>
 
@@ -314,7 +314,7 @@ export default function ProgramsPage() {
       {/* Create Program Modal */}
       <FormModal
         open={createModal.isOpen}
-        title="Create Program"
+        title="Thêm ngành"
         schema={createProgramSchema}
         onClose={createModal.close}
         onSubmit={handleCreate}
@@ -421,7 +421,7 @@ export default function ProgramsPage() {
       {/* Edit Program Modal */}
       <FormModal
         open={editModal.isOpen}
-        title="Edit Program"
+        title="Sửa ngành"
         schema={updateProgramSchema}
         onClose={() => {
           editModal.close();
@@ -531,15 +531,15 @@ export default function ProgramsPage() {
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         open={deleteModal.isOpen}
-        title="Delete Program"
-        content={`Are you sure you want to delete program "${selectedProgram?.name}" (${selectedProgram?.code})? This action cannot be undone.`}
+        title="Xóa ngành"
+        content={`Bạn có chắc chắn muốn xóa ngành "${selectedProgram?.name}" (${selectedProgram?.code})? Hành động này không thể hoàn tác.`}
         onConfirm={handleDelete}
         onCancel={() => {
           deleteModal.close();
           setSelectedProgram(null);
         }}
-        okText="Delete"
-        cancelText="Cancel"
+        okText="Xóa"
+        cancelText="Hủy"
         okType="danger"
       />
     </div>

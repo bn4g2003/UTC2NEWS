@@ -91,11 +91,11 @@ export default function UsersPage() {
   const handleCreate = async (data: CreateUserFormData) => {
     try {
       await UsersService.usersControllerCreateUser(data);
-      message.success('User created successfully');
+      message.success('Tạo người dùng thành công');
       fetchUsers();
       createModal.close();
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to create user';
+      const errorMessage = err instanceof Error ? err.message : 'Không thể tạo người dùng';
       message.error(errorMessage);
       throw err;
     }
@@ -113,12 +113,12 @@ export default function UsersPage() {
       }
       
       await UsersService.usersControllerUpdateUser(selectedUser.id, updateData);
-      message.success('User updated successfully');
+      message.success('Cập nhật người dùng thành công');
       fetchUsers();
       editModal.close();
       setSelectedUser(null);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to update user';
+      const errorMessage = err instanceof Error ? err.message : 'Không thể cập nhật người dùng';
       message.error(errorMessage);
       throw err;
     }
@@ -130,12 +130,12 @@ export default function UsersPage() {
     
     try {
       await UsersService.usersControllerDeleteUser(selectedUser.id);
-      message.success('User deleted successfully');
+      message.success('Xóa người dùng thành công');
       fetchUsers();
       deleteModal.close();
       setSelectedUser(null);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to delete user';
+      const errorMessage = err instanceof Error ? err.message : 'Không thể xóa người dùng';
       message.error(errorMessage);
     }
   };
@@ -168,13 +168,13 @@ export default function UsersPage() {
   const columns: Column<User>[] = [
     {
       key: 'username',
-      title: 'Username',
+      title: 'Tên đăng nhập',
       dataIndex: 'username',
       sortable: true,
     },
     {
       key: 'fullName',
-      title: 'Full Name',
+      title: 'Họ và tên',
       dataIndex: 'fullName',
       sortable: true,
     },
@@ -186,19 +186,19 @@ export default function UsersPage() {
     },
     {
       key: 'isActive',
-      title: 'Status',
+      title: 'Trạng thái',
       dataIndex: 'isActive',
       render: (value: boolean) => (
         <Tag color={value ? 'green' : 'red'}>
-          {value ? 'Active' : 'Inactive'}
+          {value ? 'Hoạt động' : 'Không hoạt động'}
         </Tag>
       ),
     },
     {
       key: 'createdAt',
-      title: 'Created At',
+      title: 'Ngày tạo',
       dataIndex: 'createdAt',
-      render: (value: string) => new Date(value).toLocaleDateString(),
+      render: (value: string) => new Date(value).toLocaleDateString('vi-VN'),
     },
   ];
 
@@ -206,13 +206,13 @@ export default function UsersPage() {
   const actions: DataGridAction<User>[] = [
     {
       key: 'edit',
-      label: 'Edit',
+      label: 'Sửa',
       icon: <EditOutlined />,
       onClick: openEditModal,
     },
     {
       key: 'delete',
-      label: 'Delete',
+      label: 'Xóa',
       icon: <DeleteOutlined />,
       onClick: openDeleteModal,
       danger: true,
@@ -222,20 +222,20 @@ export default function UsersPage() {
   return (
     <div style={{ padding: '24px' }}>
       <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 600 }}>Users Management</h1>
+        <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 600 }}>Quản lý Người dùng</h1>
         <Button
           type="primary"
           icon={<PlusOutlined />}
           onClick={createModal.open}
         >
-          Add User
+          Thêm người dùng
         </Button>
       </div>
 
       {/* Search and Filter Bar */}
       <Space style={{ marginBottom: '16px', width: '100%' }} size="middle">
         <Input
-          placeholder="Search by username, email, or name"
+          placeholder="Tìm kiếm theo tên đăng nhập, email hoặc họ tên"
           prefix={<SearchOutlined />}
           style={{ width: 300 }}
           value={searchQuery}
@@ -243,14 +243,14 @@ export default function UsersPage() {
           allowClear
         />
         <Select
-          placeholder="Filter by status"
+          placeholder="Lọc theo trạng thái"
           style={{ width: 150 }}
           value={statusFilter}
           onChange={handleStatusFilterChange}
         >
-          <Select.Option value="all">All Status</Select.Option>
-          <Select.Option value="active">Active</Select.Option>
-          <Select.Option value="inactive">Inactive</Select.Option>
+          <Select.Option value="all">Tất cả</Select.Option>
+          <Select.Option value="active">Hoạt động</Select.Option>
+          <Select.Option value="inactive">Không hoạt động</Select.Option>
         </Select>
       </Space>
 
@@ -273,7 +273,7 @@ export default function UsersPage() {
       {/* Create User Modal */}
       <FormModal
         open={createModal.isOpen}
-        title="Create User"
+        title="Thêm người dùng"
         schema={createUserSchema}
         onClose={createModal.close}
         onSubmit={handleCreate}
@@ -401,7 +401,7 @@ export default function UsersPage() {
       {/* Edit User Modal */}
       <FormModal
         open={editModal.isOpen}
-        title="Edit User"
+        title="Sửa người dùng"
         schema={updateUserSchema}
         onClose={() => {
           editModal.close();
@@ -511,15 +511,15 @@ export default function UsersPage() {
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         open={deleteModal.isOpen}
-        title="Delete User"
-        content={`Are you sure you want to delete user "${selectedUser?.username}"? This action cannot be undone.`}
+        title="Xóa người dùng"
+        content={`Bạn có chắc chắn muốn xóa người dùng "${selectedUser?.username}"? Hành động này không thể hoàn tác.`}
         onConfirm={handleDelete}
         onCancel={() => {
           deleteModal.close();
           setSelectedUser(null);
         }}
-        okText="Delete"
-        cancelText="Cancel"
+        okText="Xóa"
+        cancelText="Hủy"
         okType="danger"
       />
     </div>

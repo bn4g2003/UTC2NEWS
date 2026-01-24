@@ -136,12 +136,12 @@ export default function RolesPage() {
       console.log('Cleaned data:', cleanData);
       
       await RbacService.rbacControllerCreateRole(cleanData);
-      message.success('Role created successfully');
+      message.success('Tạo vai trò thành công');
       fetchRoles();
       createModal.close();
     } catch (err) {
       console.error('Create role error:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to create role';
+      const errorMessage = err instanceof Error ? err.message : 'Không thể tạo vai trò';
       message.error(errorMessage);
       throw err;
     }
@@ -154,7 +154,7 @@ export default function RolesPage() {
     try {
       // Validate that we have permission IDs
       if (!selectedPermissionIds || selectedPermissionIds.length === 0) {
-        message.warning('Please select at least one permission');
+        message.warning('Vui lòng chọn ít nhất một quyền');
         return;
       }
 
@@ -169,14 +169,14 @@ export default function RolesPage() {
         { permissionIds: selectedPermissionIds }
       );
       
-      message.success('Role permissions updated successfully');
+      message.success('Cập nhật quyền vai trò thành công');
       fetchRoles();
       editDrawer.close();
       setSelectedRole(null);
       setSelectedPermissionIds([]);
     } catch (err) {
       console.error('Error updating role:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to update role';
+      const errorMessage = err instanceof Error ? err.message : 'Không thể cập nhật vai trò';
       message.error(errorMessage);
       throw err;
     }
@@ -196,19 +196,19 @@ export default function RolesPage() {
       const assignedUsers = usersResponse.data || usersResponse || [];
       
       if (assignedUsers.length > 0) {
-        message.error(`Cannot delete role "${selectedRole.name}" because it is assigned to ${assignedUsers.length} user(s)`);
+        message.error(`Không thể xóa vai trò "${selectedRole.name}" vì đang được gán cho ${assignedUsers.length} người dùng`);
         return;
       }
       
       // Note: The API doesn't have a deleteRole endpoint in RbacService
       // This is a placeholder - you may need to add this endpoint to the backend
       await fetch(`/api/roles/${selectedRole.id}`, { method: 'DELETE' });
-      message.success('Role deleted successfully');
+      message.success('Xóa vai trò thành công');
       fetchRoles();
       deleteModal.close();
       setSelectedRole(null);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to delete role';
+      const errorMessage = err instanceof Error ? err.message : 'Không thể xóa vai trò';
       message.error(errorMessage);
     }
   };
@@ -240,21 +240,21 @@ export default function RolesPage() {
   const columns: Column<Role>[] = [
     {
       key: 'name',
-      title: 'Role Name',
+      title: 'Tên vai trò',
       dataIndex: 'name',
       sortable: true,
     },
     {
       key: 'description',
-      title: 'Description',
+      title: 'Mô tả',
       dataIndex: 'description',
       render: (value: string | undefined) => value || '-',
     },
     {
       key: 'createdAt',
-      title: 'Created At',
+      title: 'Ngày tạo',
       dataIndex: 'createdAt',
-      render: (value: string) => new Date(value).toLocaleDateString(),
+      render: (value: string) => new Date(value).toLocaleDateString('vi-VN'),
     },
   ];
 
@@ -262,13 +262,13 @@ export default function RolesPage() {
   const actions: DataGridAction<Role>[] = [
     {
       key: 'edit',
-      label: 'Edit',
+      label: 'Sửa',
       icon: <EditOutlined />,
       onClick: openEditDrawer,
     },
     {
       key: 'delete',
-      label: 'Delete',
+      label: 'Xóa',
       icon: <DeleteOutlined />,
       onClick: openDeleteModal,
       danger: true,
@@ -278,20 +278,20 @@ export default function RolesPage() {
   return (
     <div style={{ padding: '24px' }}>
       <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 600 }}>Roles Management</h1>
+        <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 600 }}>Quản lý Vai trò</h1>
         <Button
           type="primary"
           icon={<PlusOutlined />}
           onClick={createModal.open}
         >
-          Add Role
+          Thêm vai trò
         </Button>
       </div>
 
       {/* Search Bar */}
       <Space style={{ marginBottom: '16px', width: '100%' }} size="middle">
         <Input
-          placeholder="Search by role name or description"
+          placeholder="Tìm kiếm theo tên vai trò hoặc mô tả"
           prefix={<SearchOutlined />}
           style={{ width: 300 }}
           value={searchQuery}
@@ -319,7 +319,7 @@ export default function RolesPage() {
       {/* Create Role Modal */}
       <FormModal
         open={createModal.isOpen}
-        title="Create Role"
+        title="Thêm vai trò"
         schema={createRoleSchema}
         onClose={createModal.close}
         onSubmit={handleCreate}
@@ -384,22 +384,22 @@ export default function RolesPage() {
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         open={deleteModal.isOpen}
-        title="Delete Role"
-        content={`Are you sure you want to delete role "${selectedRole?.name}"? This action cannot be undone.`}
+        title="Xóa vai trò"
+        content={`Bạn có chắc chắn muốn xóa vai trò "${selectedRole?.name}"? Hành động này không thể hoàn tác.`}
         onConfirm={handleDelete}
         onCancel={() => {
           deleteModal.close();
           setSelectedRole(null);
         }}
-        okText="Delete"
-        cancelText="Cancel"
+        okText="Xóa"
+        cancelText="Hủy"
         okType="danger"
       />
 
       {/* Edit Role Drawer */}
       <FormDrawer
         open={editDrawer.isOpen}
-        title="Edit Role"
+        title="Sửa vai trò"
         schema={updateRoleSchema}
         onClose={() => {
           editDrawer.close();

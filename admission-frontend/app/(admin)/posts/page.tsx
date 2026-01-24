@@ -151,12 +151,12 @@ export default function PostsPage() {
       };
 
       await CmsService.cmsControllerCreatePost(cleanData);
-      message.success('Post created successfully');
+      message.success('Tạo bài viết thành công');
       fetchPosts();
       formDrawer.close();
       setSelectedPost(null);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to create post';
+      const errorMessage = err instanceof Error ? err.message : 'Không thể tạo bài viết';
       message.error(errorMessage);
       throw err;
     }
@@ -180,12 +180,12 @@ export default function PostsPage() {
       };
 
       await CmsService.cmsControllerUpdatePost(selectedPost.id, cleanData);
-      message.success('Post updated successfully');
+      message.success('Cập nhật bài viết thành công');
       fetchPosts();
       formDrawer.close();
       setSelectedPost(null);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to update post';
+      const errorMessage = err instanceof Error ? err.message : 'Không thể cập nhật bài viết';
       message.error(errorMessage);
       throw err;
     }
@@ -197,12 +197,12 @@ export default function PostsPage() {
 
     try {
       await CmsService.cmsControllerDeletePost(selectedPost.id);
-      message.success('Post deleted successfully');
+      message.success('Xóa bài viết thành công');
       fetchPosts();
       deleteModal.close();
       setSelectedPost(null);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to delete post';
+      const errorMessage = err instanceof Error ? err.message : 'Không thể xóa bài viết';
       message.error(errorMessage);
     }
   };
@@ -249,7 +249,7 @@ export default function PostsPage() {
   const columns: Column<Post>[] = [
     {
       key: 'title',
-      title: 'Title',
+      title: 'Tiêu đề',
       dataIndex: 'title',
       sortable: true,
       render: (value: string, record: Post) => (
@@ -265,40 +265,40 @@ export default function PostsPage() {
     },
     {
       key: 'category',
-      title: 'Category',
+      title: 'Danh mục',
       dataIndex: 'category',
       render: (category: Post['category']) => (
-        category ? <Tag color="blue">{category.name}</Tag> : <Tag>Uncategorized</Tag>
+        category ? <Tag color="blue">{category.name}</Tag> : <Tag>Chưa phân loại</Tag>
       ),
     },
     {
       key: 'status',
-      title: 'Status',
+      title: 'Trạng thái',
       dataIndex: 'status',
       render: (value: string) => (
         <Tag color={value === 'published' ? 'green' : 'orange'}>
-          {value === 'published' ? 'Published' : 'Draft'}
+          {value === 'published' ? 'Đã xuất bản' : 'Bản nháp'}
         </Tag>
       ),
     },
     {
       key: 'author',
-      title: 'Author',
+      title: 'Tác giả',
       dataIndex: 'author',
       render: (author: Post['author']) => author?.fullName || '-',
     },
     {
       key: 'publishedAt',
-      title: 'Published Date',
+      title: 'Ngày xuất bản',
       dataIndex: 'publishedAt',
       render: (value: string | undefined) =>
-        value ? new Date(value).toLocaleDateString() : '-',
+        value ? new Date(value).toLocaleDateString('vi-VN') : '-',
     },
     {
       key: 'updatedAt',
-      title: 'Last Updated',
+      title: 'Cập nhật lần cuối',
       dataIndex: 'updatedAt',
-      render: (value: string) => new Date(value).toLocaleDateString(),
+      render: (value: string) => new Date(value).toLocaleDateString('vi-VN'),
     },
   ];
 
@@ -306,13 +306,13 @@ export default function PostsPage() {
   const actions: DataGridAction<Post>[] = [
     {
       key: 'edit',
-      label: 'Edit',
+      label: 'Sửa',
       icon: <EditOutlined />,
       onClick: openEditDrawer,
     },
     {
       key: 'delete',
-      label: 'Delete',
+      label: 'Xóa',
       icon: <DeleteOutlined />,
       onClick: openDeleteModal,
       danger: true,
@@ -496,7 +496,7 @@ export default function PostsPage() {
 
   // Get drawer title based on view mode
   const getDrawerTitle = () => {
-    return viewMode === 'create' ? 'Create Post' : 'Edit Post';
+    return viewMode === 'create' ? 'Thêm bài viết' : 'Sửa bài viết';
   };
 
   // Get initial values for form
@@ -529,20 +529,20 @@ export default function PostsPage() {
   return (
     <div style={{ padding: '24px' }}>
       <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 600 }}>Posts Management</h1>
+        <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 600 }}>Quản lý Bài viết</h1>
         <Button
           type="primary"
           icon={<PlusOutlined />}
           onClick={openCreateDrawer}
         >
-          Add Post
+          Thêm bài viết
         </Button>
       </div>
 
       {/* Search and Filter Bar */}
       <Space style={{ marginBottom: '16px', width: '100%' }} size="middle">
         <Input
-          placeholder="Search by title or content"
+          placeholder="Tìm kiếm theo tiêu đề hoặc nội dung"
           prefix={<SearchOutlined />}
           style={{ width: 300 }}
           value={searchQuery}
@@ -550,22 +550,22 @@ export default function PostsPage() {
           allowClear
         />
         <Select
-          placeholder="Filter by status"
+          placeholder="Lọc theo trạng thái"
           style={{ width: 150 }}
           value={statusFilter}
           onChange={handleStatusFilterChange}
         >
-          <Select.Option value="all">All Status</Select.Option>
-          <Select.Option value="draft">Draft</Select.Option>
-          <Select.Option value="published">Published</Select.Option>
+          <Select.Option value="all">Tất cả</Select.Option>
+          <Select.Option value="draft">Bản nháp</Select.Option>
+          <Select.Option value="published">Đã xuất bản</Select.Option>
         </Select>
         <Select
-          placeholder="Filter by category"
+          placeholder="Lọc theo danh mục"
           style={{ width: 200 }}
           value={categoryFilter}
           onChange={handleCategoryFilterChange}
         >
-          <Select.Option value="all">All Categories</Select.Option>
+          <Select.Option value="all">Tất cả danh mục</Select.Option>
           {categories.map((category) => (
             <Select.Option key={category.id} value={category.id}>
               {category.name}
@@ -602,8 +602,8 @@ export default function PostsPage() {
         onSubmit={viewMode === 'create' ? handleCreate : handleEdit}
         initialValues={getInitialValues()}
         width={800}
-        okText={viewMode === 'create' ? 'Create' : 'Update'}
-        cancelText="Cancel"
+        okText={viewMode === 'create' ? 'Tạo' : 'Cập nhật'}
+        cancelText="Hủy"
       >
         {renderFormFields}
       </FormDrawer>
@@ -611,15 +611,15 @@ export default function PostsPage() {
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         open={deleteModal.isOpen}
-        title="Delete Post"
-        content={`Are you sure you want to delete post "${selectedPost?.title}"? This action cannot be undone.`}
+        title="Xóa bài viết"
+        content={`Bạn có chắc chắn muốn xóa bài viết "${selectedPost?.title}"? Hành động này không thể hoàn tác.`}
         onConfirm={handleDelete}
         onCancel={() => {
           deleteModal.close();
           setSelectedPost(null);
         }}
-        okText="Delete"
-        cancelText="Cancel"
+        okText="Xóa"
+        cancelText="Hủy"
         okType="danger"
       />
     </div>

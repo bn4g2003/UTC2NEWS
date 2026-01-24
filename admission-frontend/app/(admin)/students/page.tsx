@@ -121,12 +121,12 @@ export default function StudentsPage() {
         ...data,
         sessionId: selectedSessionId,
       });
-      message.success('Student created successfully');
+      message.success('Tạo thí sinh thành công');
       fetchStudents();
       formDrawer.close();
       setSelectedStudent(null);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to create student';
+      const errorMessage = err instanceof Error ? err.message : 'Không thể tạo thí sinh';
       message.error(errorMessage);
       throw err;
     }
@@ -141,12 +141,12 @@ export default function StudentsPage() {
         ...data,
         sessionId: selectedSessionId,
       });
-      message.success('Student updated successfully');
+      message.success('Cập nhật thí sinh thành công');
       fetchStudents();
       formDrawer.close();
       setSelectedStudent(null);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to update student';
+      const errorMessage = err instanceof Error ? err.message : 'Không thể cập nhật thí sinh';
       message.error(errorMessage);
       throw err;
     }
@@ -165,12 +165,12 @@ export default function StudentsPage() {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
       });
-      message.success('Student deleted successfully');
+      message.success('Xóa thí sinh thành công');
       fetchStudents();
       deleteModal.close();
       setSelectedStudent(null);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to delete student';
+      const errorMessage = err instanceof Error ? err.message : 'Không thể xóa thí sinh';
       message.error(errorMessage);
     }
   };
@@ -211,21 +211,21 @@ export default function StudentsPage() {
   const columns: Column<Student>[] = [
     {
       key: 'idCard',
-      title: 'ID Card',
+      title: 'CMND/CCCD',
       dataIndex: 'idCard',
       sortable: true,
     },
     {
       key: 'fullName',
-      title: 'Full Name',
+      title: 'Họ và tên',
       dataIndex: 'fullName',
       sortable: true,
     },
     {
       key: 'dateOfBirth',
-      title: 'Date of Birth',
+      title: 'Ngày sinh',
       dataIndex: 'dateOfBirth',
-      render: (value: string) => new Date(value).toLocaleDateString(),
+      render: (value: string) => new Date(value).toLocaleDateString('vi-VN'),
     },
     {
       key: 'email',
@@ -235,13 +235,13 @@ export default function StudentsPage() {
     },
     {
       key: 'phone',
-      title: 'Phone',
+      title: 'Số điện thoại',
       dataIndex: 'phone',
       render: (value: string | undefined) => value || '-',
     },
     {
       key: 'priorityPoints',
-      title: 'Priority Points',
+      title: 'Điểm ưu tiên',
       dataIndex: 'priorityPoints',
       render: (value: number) => (
         <Tag color={value > 0 ? 'blue' : 'default'}>
@@ -255,19 +255,19 @@ export default function StudentsPage() {
   const actions: DataGridAction<Student>[] = [
     {
       key: 'view',
-      label: 'View',
+      label: 'Xem',
       icon: <EyeOutlined />,
       onClick: openDetailPage,
     },
     {
       key: 'edit',
-      label: 'Edit',
+      label: 'Sửa',
       icon: <EditOutlined />,
       onClick: openEditDrawer,
     },
     {
       key: 'delete',
-      label: 'Delete',
+      label: 'Xóa',
       icon: <DeleteOutlined />,
       onClick: openDeleteModal,
       danger: true,
@@ -282,7 +282,7 @@ export default function StudentsPage() {
       <Space orientation="vertical" style={{ width: '100%' }} size="large">
         <div>
           <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
-            ID Card Number <span style={{ color: 'red' }}>*</span>
+            Số CMND/CCCD <span style={{ color: 'red' }}>*</span>
           </label>
           <Controller
             name="idCard"
@@ -290,7 +290,7 @@ export default function StudentsPage() {
             render={({ field }) => (
               <Input
                 {...field}
-                placeholder="Enter ID card number (9 or 12 digits)"
+                placeholder="Nhập số CMND/CCCD (9 hoặc 12 số)"
                 disabled={isReadOnly || viewMode === 'edit'}
                 status={form.formState.errors.idCard ? 'error' : ''}
               />
@@ -303,14 +303,14 @@ export default function StudentsPage() {
           )}
           {viewMode === 'edit' && (
             <div style={{ color: '#666', fontSize: '12px', marginTop: '4px' }}>
-              ID card number cannot be changed after creation
+              Số CMND/CCCD không thể thay đổi sau khi tạo
             </div>
           )}
         </div>
 
         <div>
           <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
-            Full Name <span style={{ color: 'red' }}>*</span>
+            Họ và tên <span style={{ color: 'red' }}>*</span>
           </label>
           <Controller
             name="fullName"
@@ -318,7 +318,7 @@ export default function StudentsPage() {
             render={({ field }) => (
               <Input
                 {...field}
-                placeholder="Enter full name"
+                placeholder="Nhập họ và tên"
                 disabled={isReadOnly}
                 status={form.formState.errors.fullName ? 'error' : ''}
               />
@@ -333,7 +333,7 @@ export default function StudentsPage() {
 
         <div>
           <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
-            Date of Birth <span style={{ color: 'red' }}>*</span>
+            Ngày sinh <span style={{ color: 'red' }}>*</span>
           </label>
           <Controller
             name="dateOfBirth"
@@ -342,7 +342,7 @@ export default function StudentsPage() {
               <Input
                 {...field}
                 type="date"
-                placeholder="Select date of birth"
+                placeholder="Chọn ngày sinh"
                 disabled={isReadOnly}
                 status={form.formState.errors.dateOfBirth ? 'error' : ''}
               />
@@ -366,7 +366,7 @@ export default function StudentsPage() {
               <Input
                 {...field}
                 type="email"
-                placeholder="Enter email address"
+                placeholder="Nhập địa chỉ email"
                 disabled={isReadOnly}
                 status={form.formState.errors.email ? 'error' : ''}
               />
@@ -381,7 +381,7 @@ export default function StudentsPage() {
 
         <div>
           <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
-            Phone
+            Số điện thoại
           </label>
           <Controller
             name="phone"
@@ -389,7 +389,7 @@ export default function StudentsPage() {
             render={({ field }) => (
               <Input
                 {...field}
-                placeholder="Enter phone number (10 digits)"
+                placeholder="Nhập số điện thoại (10 số)"
                 disabled={isReadOnly}
                 status={form.formState.errors.phone ? 'error' : ''}
               />
@@ -404,7 +404,7 @@ export default function StudentsPage() {
 
         <div>
           <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
-            Address
+            Địa chỉ
           </label>
           <Controller
             name="address"
@@ -412,7 +412,7 @@ export default function StudentsPage() {
             render={({ field }) => (
               <Input.TextArea
                 {...field}
-                placeholder="Enter address"
+                placeholder="Nhập địa chỉ"
                 rows={3}
                 disabled={isReadOnly}
                 status={form.formState.errors.address ? 'error' : ''}
@@ -428,7 +428,7 @@ export default function StudentsPage() {
 
         <div>
           <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
-            Priority Points
+            Điểm ưu tiên
           </label>
           <Controller
             name="priorityPoints"
@@ -439,7 +439,7 @@ export default function StudentsPage() {
                 type="number"
                 min={0}
                 max={3}
-                placeholder="Enter priority points (0-3)"
+                placeholder="Nhập điểm ưu tiên (0-3)"
                 disabled={isReadOnly}
                 status={form.formState.errors.priorityPoints ? 'error' : ''}
                 onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : 0)}
@@ -452,7 +452,7 @@ export default function StudentsPage() {
             </div>
           )}
           <div style={{ color: '#666', fontSize: '12px', marginTop: '4px' }}>
-            Priority points range from 0 to 3
+            Điểm ưu tiên từ 0 đến 3
           </div>
         </div>
 
@@ -486,13 +486,13 @@ export default function StudentsPage() {
   const getDrawerTitle = () => {
     switch (viewMode) {
       case 'create':
-        return 'Create Student';
+        return 'Thêm thí sinh';
       case 'edit':
-        return 'Edit Student';
+        return 'Sửa thông tin thí sinh';
       case 'view':
-        return 'View Student Details';
+        return 'Chi tiết thí sinh';
       default:
-        return 'Student';
+        return 'Thí sinh';
     }
   };
 
@@ -524,7 +524,7 @@ export default function StudentsPage() {
   return (
     <div style={{ padding: '24px' }}>
       <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 600 }}>Students Management</h1>
+        <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 600 }}>Quản lý Thí sinh</h1>
         <Space>
           <Select
             placeholder="Chọn đợt tuyển sinh"
@@ -550,7 +550,7 @@ export default function StudentsPage() {
             onClick={openCreateDrawer}
             disabled={!selectedSessionId}
           >
-            Add Student
+            Thêm thí sinh
           </Button>
         </Space>
       </div>
@@ -558,7 +558,7 @@ export default function StudentsPage() {
       {/* Search Bar */}
       <Space style={{ marginBottom: '16px', width: '100%' }} size="middle">
         <Input
-          placeholder="Search by ID card, name, or email"
+          placeholder="Tìm kiếm theo CMND, họ tên hoặc email"
           prefix={<SearchOutlined />}
           style={{ width: 400 }}
           value={searchQuery}
@@ -596,8 +596,8 @@ export default function StudentsPage() {
           onSubmit={handleCreate}
           initialValues={getInitialValues()}
           width={720}
-          okText="Create"
-          cancelText="Cancel"
+          okText="Tạo"
+          cancelText="Hủy"
         >
           {renderFormFields}
         </FormDrawer>
@@ -615,8 +615,8 @@ export default function StudentsPage() {
           onSubmit={handleEdit}
           initialValues={getInitialValues()}
           width={720}
-          okText={viewMode === 'view' ? 'Close' : 'Update'}
-          cancelText={viewMode === 'view' ? undefined : 'Cancel'}
+          okText={viewMode === 'view' ? 'Đóng' : 'Cập nhật'}
+          cancelText={viewMode === 'view' ? undefined : 'Hủy'}
         >
           {renderFormFields}
         </FormDrawer>
@@ -625,15 +625,15 @@ export default function StudentsPage() {
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         open={deleteModal.isOpen}
-        title="Delete Student"
-        content={`Are you sure you want to delete student "${selectedStudent?.fullName}" (ID: ${selectedStudent?.idCard})? This action cannot be undone.`}
+        title="Xóa thí sinh"
+        content={`Bạn có chắc chắn muốn xóa thí sinh "${selectedStudent?.fullName}" (CMND: ${selectedStudent?.idCard})? Hành động này không thể hoàn tác.`}
         onConfirm={handleDelete}
         onCancel={() => {
           deleteModal.close();
           setSelectedStudent(null);
         }}
-        okText="Delete"
-        cancelText="Cancel"
+        okText="Xóa"
+        cancelText="Hủy"
         okType="danger"
       />
 

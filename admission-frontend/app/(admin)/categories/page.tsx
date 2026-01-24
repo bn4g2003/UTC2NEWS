@@ -93,12 +93,12 @@ export default function CategoriesPage() {
       };
       
       await CmsService.cmsControllerCreateCategory(cleanData);
-      message.success('Category created successfully');
+      message.success('Tạo danh mục thành công');
       fetchCategories();
       formModal.close();
       setSelectedCategory(null);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to create category';
+      const errorMessage = err instanceof Error ? err.message : 'Không thể tạo danh mục';
       message.error(errorMessage);
       throw err;
     }
@@ -116,12 +116,12 @@ export default function CategoriesPage() {
       };
       
       await CmsService.cmsControllerUpdateCategory(selectedCategory.id, cleanData);
-      message.success('Category updated successfully');
+      message.success('Cập nhật danh mục thành công');
       fetchCategories();
       formModal.close();
       setSelectedCategory(null);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to update category';
+      const errorMessage = err instanceof Error ? err.message : 'Không thể cập nhật danh mục';
       message.error(errorMessage);
       throw err;
     }
@@ -133,7 +133,7 @@ export default function CategoriesPage() {
     
     // Check if category has posts
     if (selectedCategory._count && selectedCategory._count.posts > 0) {
-      message.error(`Cannot delete category "${selectedCategory.name}" because it has ${selectedCategory._count.posts} associated post(s)`);
+      message.error(`Không thể xóa danh mục "${selectedCategory.name}" vì có ${selectedCategory._count.posts} bài viết liên quan`);
       deleteModal.close();
       setSelectedCategory(null);
       return;
@@ -141,12 +141,12 @@ export default function CategoriesPage() {
     
     try {
       await CmsService.cmsControllerDeleteCategory(selectedCategory.id);
-      message.success('Category deleted successfully');
+      message.success('Xóa danh mục thành công');
       fetchCategories();
       deleteModal.close();
       setSelectedCategory(null);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to delete category';
+      const errorMessage = err instanceof Error ? err.message : 'Không thể xóa danh mục';
       message.error(errorMessage);
     }
   };
@@ -181,7 +181,7 @@ export default function CategoriesPage() {
   const columns: Column<Category>[] = [
     {
       key: 'name',
-      title: 'Name',
+      title: 'Tên',
       dataIndex: 'name',
       sortable: true,
       render: (value: string) => (
@@ -205,7 +205,7 @@ export default function CategoriesPage() {
     },
     {
       key: 'description',
-      title: 'Description',
+      title: 'Mô tả',
       dataIndex: 'description',
       render: (value: string | undefined) => (
         <div style={{ color: '#666', fontSize: '13px' }}>
@@ -215,15 +215,15 @@ export default function CategoriesPage() {
     },
     {
       key: 'posts',
-      title: 'Posts',
+      title: 'Bài viết',
       dataIndex: '_count',
       render: (count: Category['_count']) => count?.posts || 0,
     },
     {
       key: 'updatedAt',
-      title: 'Last Updated',
+      title: 'Cập nhật lần cuối',
       dataIndex: 'updatedAt',
-      render: (value: string) => new Date(value).toLocaleDateString(),
+      render: (value: string) => new Date(value).toLocaleDateString('vi-VN'),
     },
   ];
 
@@ -231,13 +231,13 @@ export default function CategoriesPage() {
   const actions: DataGridAction<Category>[] = [
     {
       key: 'edit',
-      label: 'Edit',
+      label: 'Sửa',
       icon: <EditOutlined />,
       onClick: openEditModal,
     },
     {
       key: 'delete',
-      label: 'Delete',
+      label: 'Xóa',
       icon: <DeleteOutlined />,
       onClick: openDeleteModal,
       danger: true,
@@ -330,7 +330,7 @@ export default function CategoriesPage() {
 
   // Get modal title based on view mode
   const getModalTitle = () => {
-    return viewMode === 'create' ? 'Create Category' : 'Edit Category';
+    return viewMode === 'create' ? 'Thêm danh mục' : 'Sửa danh mục';
   };
 
   // Get initial values for form
@@ -353,20 +353,20 @@ export default function CategoriesPage() {
   return (
     <div style={{ padding: '24px' }}>
       <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 600 }}>Categories Management</h1>
+        <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 600 }}>Quản lý Danh mục</h1>
         <Button
           type="primary"
           icon={<PlusOutlined />}
           onClick={openCreateModal}
         >
-          Add Category
+          Thêm danh mục
         </Button>
       </div>
 
       {/* Search Bar */}
       <Space style={{ marginBottom: '16px', width: '100%' }} size="middle">
         <Input
-          placeholder="Search by name, slug, or description"
+          placeholder="Tìm kiếm theo tên, slug hoặc mô tả"
           prefix={<SearchOutlined />}
           style={{ width: 400 }}
           value={searchQuery}

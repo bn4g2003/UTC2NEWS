@@ -99,15 +99,15 @@ export default function SessionsPage() {
       };
 
       await ProgramsService.programControllerCreateSession(dto);
-      message.success('Session created successfully');
+      message.success('Tạo đợt tuyển sinh thành công');
       fetchSessions();
       createModal.close();
     } catch (err: any) {
-      let errorMessage = 'Failed to create session';
+      let errorMessage = 'Không thể tạo đợt tuyển sinh';
 
       // Handle specific error cases
       if (err.status === 403) {
-        errorMessage = 'You do not have permission to create sessions';
+        errorMessage = 'Bạn không có quyền tạo đợt tuyển sinh';
       } else if (err instanceof Error) {
         errorMessage = err.message;
       }
@@ -132,18 +132,18 @@ export default function SessionsPage() {
       };
 
       await ProgramsService.programControllerUpdateSession(selectedSession.id, dto);
-      message.success('Session updated successfully');
+      message.success('Cập nhật đợt tuyển sinh thành công');
       fetchSessions();
       editModal.close();
       setSelectedSession(null);
     } catch (err: any) {
-      let errorMessage = 'Failed to update session';
+      let errorMessage = 'Không thể cập nhật đợt tuyển sinh';
 
       // Handle specific error cases
       if (err.status === 404) {
-        errorMessage = 'Session not found';
+        errorMessage = 'Không tìm thấy đợt tuyển sinh';
       } else if (err.status === 403) {
-        errorMessage = 'You do not have permission to update sessions';
+        errorMessage = 'Bạn không có quyền cập nhật đợt tuyển sinh';
       } else if (err instanceof Error) {
         errorMessage = err.message;
       }
@@ -159,20 +159,20 @@ export default function SessionsPage() {
 
     try {
       await ProgramsService.programControllerDeleteSession(selectedSession.id);
-      message.success('Session deleted successfully');
+      message.success('Xóa đợt tuyển sinh thành công');
       fetchSessions();
       deleteModal.close();
       setSelectedSession(null);
     } catch (err: any) {
-      let errorMessage = 'Failed to delete session';
+      let errorMessage = 'Không thể xóa đợt tuyển sinh';
 
       // Handle specific error cases (Requirement 11.6)
       if (err.status === 409) {
-        errorMessage = `Cannot delete session "${selectedSession.name}" because it has associated students`;
+        errorMessage = `Không thể xóa đợt tuyển sinh "${selectedSession.name}" vì có thí sinh liên quan`;
       } else if (err.status === 404) {
-        errorMessage = 'Session not found';
+        errorMessage = 'Không tìm thấy đợt tuyển sinh';
       } else if (err.status === 403) {
-        errorMessage = 'You do not have permission to delete sessions';
+        errorMessage = 'Bạn không có quyền xóa đợt tuyển sinh';
       } else if (err instanceof Error) {
         errorMessage = err.message;
       }
@@ -223,7 +223,7 @@ export default function SessionsPage() {
   const columns: Column<Session>[] = [
     {
       key: 'name',
-      title: 'Session Name',
+      title: 'Tên đợt tuyển sinh',
       dataIndex: 'name',
       sortable: true,
       render: (text, record) => (
@@ -240,41 +240,41 @@ export default function SessionsPage() {
     },
     {
       key: 'year',
-      title: 'Year',
+      title: 'Năm',
       dataIndex: 'year',
       sortable: true,
       width: '100px',
     },
     {
       key: 'startDate',
-      title: 'Start Date',
+      title: 'Ngày bắt đầu',
       dataIndex: 'startDate',
-      render: (value: string) => new Date(value).toLocaleDateString(),
+      render: (value: string) => new Date(value).toLocaleDateString('vi-VN'),
       width: '120px',
     },
     {
       key: 'endDate',
-      title: 'End Date',
+      title: 'Ngày kết thúc',
       dataIndex: 'endDate',
-      render: (value: string) => new Date(value).toLocaleDateString(),
+      render: (value: string) => new Date(value).toLocaleDateString('vi-VN'),
       width: '120px',
     },
     {
       key: 'status',
-      title: 'Status',
+      title: 'Trạng thái',
       dataIndex: 'status',
       render: (value: string) => (
         <Tag color={getStatusColor(value)}>
-          {value.charAt(0).toUpperCase() + value.slice(1)}
+          {value === 'upcoming' ? 'Sắp diễn ra' : value === 'active' ? 'Đang diễn ra' : 'Đã kết thúc'}
         </Tag>
       ),
-      width: '100px',
+      width: '120px',
     },
     {
       key: 'createdAt',
-      title: 'Created At',
+      title: 'Ngày tạo',
       dataIndex: 'createdAt',
-      render: (value: string) => new Date(value).toLocaleDateString(),
+      render: (value: string) => new Date(value).toLocaleDateString('vi-VN'),
       width: '120px',
     },
   ];
@@ -283,19 +283,19 @@ export default function SessionsPage() {
   const actions: DataGridAction<Session>[] = [
     {
       key: 'details',
-      label: 'Manage',
+      label: 'Quản lý',
       icon: <SearchOutlined />, // Using SearchOutlined as a generic "view details" icon as requested
       onClick: (session) => router.push(`/sessions/${session.id}`),
     },
     {
       key: 'edit',
-      label: 'Edit',
+      label: 'Sửa',
       icon: <EditOutlined />,
       onClick: openEditModal,
     },
     {
       key: 'delete',
-      label: 'Delete',
+      label: 'Xóa',
       icon: <DeleteOutlined />,
       onClick: openDeleteModal,
       danger: true,
@@ -305,20 +305,20 @@ export default function SessionsPage() {
   return (
     <div style={{ padding: '24px' }}>
       <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 600 }}>Sessions Management</h1>
+        <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 600 }}>Quản lý Đợt tuyển sinh</h1>
         <Button
           type="primary"
           icon={<PlusOutlined />}
           onClick={createModal.open}
         >
-          Add Session
+          Thêm đợt tuyển sinh
         </Button>
       </div>
 
       {/* Search and Filter Bar */}
       <Space style={{ marginBottom: '16px', width: '100%' }} size="middle">
         <Input
-          placeholder="Search by name or year"
+          placeholder="Tìm kiếm theo tên hoặc năm"
           prefix={<SearchOutlined />}
           style={{ width: 300 }}
           value={searchQuery}
@@ -326,15 +326,15 @@ export default function SessionsPage() {
           allowClear
         />
         <Select
-          placeholder="Filter by status"
+          placeholder="Lọc theo trạng thái"
           style={{ width: 150 }}
           value={statusFilter}
           onChange={handleStatusFilterChange}
         >
-          <Select.Option value="all">All Status</Select.Option>
-          <Select.Option value="upcoming">Upcoming</Select.Option>
-          <Select.Option value="active">Active</Select.Option>
-          <Select.Option value="closed">Closed</Select.Option>
+          <Select.Option value="all">Tất cả</Select.Option>
+          <Select.Option value="upcoming">Sắp diễn ra</Select.Option>
+          <Select.Option value="active">Đang diễn ra</Select.Option>
+          <Select.Option value="closed">Đã kết thúc</Select.Option>
         </Select>
       </Space>
 
@@ -357,7 +357,7 @@ export default function SessionsPage() {
       {/* Create Session Modal */}
       <FormModal
         open={createModal.isOpen}
-        title="Create Session"
+        title="Thêm đợt tuyển sinh"
         schema={createSessionSchema}
         onClose={createModal.close}
         onSubmit={handleCreate}
@@ -591,15 +591,15 @@ export default function SessionsPage() {
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         open={deleteModal.isOpen}
-        title="Delete Session"
-        content={`Are you sure you want to delete session "${selectedSession?.name}"? This action cannot be undone.`}
+        title="Xóa đợt tuyển sinh"
+        content={`Bạn có chắc chắn muốn xóa đợt tuyển sinh "${selectedSession?.name}"? Hành động này không thể hoàn tác.`}
         onConfirm={handleDelete}
         onCancel={() => {
           deleteModal.close();
           setSelectedSession(null);
         }}
-        okText="Delete"
-        cancelText="Cancel"
+        okText="Xóa"
+        cancelText="Hủy"
         okType="danger"
       />
     </div>
