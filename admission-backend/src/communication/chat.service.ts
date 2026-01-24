@@ -253,7 +253,7 @@ export class ChatService {
     const messages = await this.prisma.message.findMany({
       where: {
         roomId,
-        deletedAt: null,
+        // Remove deletedAt: null to include soft-deleted messages
         ...(before && {
           createdAt: {
             lt: new Date(before),
@@ -273,10 +273,76 @@ export class ChatService {
             email: true,
           },
         },
+        reactions: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                fullName: true,
+              },
+            },
+          },
+        },
       },
     });
 
-    return messages.reverse();
+    // Scrub deleted messages content for privacy and format reactions
+    const safeMessages = messages.map(msg => {
+      const formattedReactions = msg.reactions.map(r => ({
+        emoji: r.emoji,
+        userId: r.user.id,
+        userName: r.user.fullName,
+      }));
+
+      if (msg.deletedAt) {
+        return {
+          ...msg,
+          content: 'Tin nhắn đã bị thu hồi',
+          type: 'SYSTEM',
+          metadata: null,
+          isDeleted: true,
+          reactions: formattedReactions,
+        };
+      }
+      return {
+        ...msg,
+        reactions: formattedReactions,
+      };
+    });
+
+    return safeMessages.reverse();
+  }
+
+  async getPinnedMessages(roomId: string, userId: string) {
+    // Check participation
+    const participant = await this.prisma.chatRoomParticipant.findUnique({
+      where: { roomId_userId: { roomId, userId } },
+    });
+
+    if (!participant) {
+      throw new Error('User is not a participant of this room');
+    }
+
+    return this.prisma.message.findMany({
+      where: {
+        roomId,
+        isPinned: true,
+        deletedAt: null, // Don't show deleted pinned messages? Or show them as deleted? Usually unpin if deleted.
+      },
+      orderBy: {
+        createdAt: 'asc',
+      },
+      include: {
+        sender: {
+          select: {
+            id: true,
+            username: true,
+            fullName: true,
+            email: true,
+          },
+        },
+      },
+    });
   }
 
   async markAsRead(roomId: string, userId: string) {
@@ -617,5 +683,155 @@ export class ChatService {
     });
 
     return { success: true, id: roomId };
+  }
+
+  async pinMessage(messageId: string, userId: string) {
+    const message = await this.prisma.message.findUnique({
+      where: { id: messageId },
+      include: {
+        room: {
+          include: {
+            participants: true,
+          },
+        },
+      },
+    });
+
+    if (!message) {
+      throw new Error('Message not found');
+    }
+
+    const participant = message.room.participants.find((p) => p.userId === userId);
+    if (!participant) {
+      throw new Error('You are not a participant of this room');
+    }
+
+    return this.prisma.message.update({
+      where: { id: messageId },
+      data: { isPinned: true },
+      include: {
+        sender: {
+          select: {
+            id: true,
+            username: true,
+            fullName: true,
+            email: true,
+          },
+        },
+      },
+    });
+  }
+
+  async unpinMessage(messageId: string, userId: string) {
+    const message = await this.prisma.message.findUnique({
+      where: { id: messageId },
+      include: {
+        room: {
+          include: {
+            participants: true,
+          },
+        },
+      },
+    });
+
+    if (!message) {
+      throw new Error('Message not found');
+    }
+
+    const participant = message.room.participants.find((p) => p.userId === userId);
+    if (!participant) {
+      throw new Error('You are not a participant of this room');
+    }
+
+    return this.prisma.message.update({
+      where: { id: messageId },
+      data: { isPinned: false },
+      include: {
+        sender: {
+          select: {
+            id: true,
+            username: true,
+            fullName: true,
+            email: true,
+          },
+        },
+      },
+    });
+  }
+
+  // Add reaction to message
+  async addReaction(messageId: string, userId: string, emoji: string) {
+    // Check if message exists and user has access
+    const message = await this.prisma.message.findUnique({
+      where: { id: messageId },
+      include: {
+        room: {
+          include: {
+            participants: true,
+          },
+        },
+      },
+    });
+
+    if (!message) {
+      throw new Error('Message not found');
+    }
+
+    const participant = message.room.participants.find((p) => p.userId === userId);
+    if (!participant) {
+      throw new Error('You are not a participant of this room');
+    }
+
+    // Create or update reaction
+    const reaction = await this.prisma.messageReaction.upsert({
+      where: {
+        messageId_userId_emoji: {
+          messageId,
+          userId,
+          emoji,
+        },
+      },
+      create: {
+        messageId,
+        userId,
+        emoji,
+      },
+      update: {},
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+          },
+        },
+      },
+    });
+
+    return {
+      messageId,
+      emoji,
+      userId: reaction.user.id,
+      userName: reaction.user.fullName,
+    };
+  }
+
+  // Remove reaction from message
+  async removeReaction(messageId: string, userId: string, emoji: string) {
+    try {
+      await this.prisma.messageReaction.delete({
+        where: {
+          messageId_userId_emoji: {
+            messageId,
+            userId,
+            emoji,
+          },
+        },
+      });
+
+      return { success: true, messageId, emoji };
+    } catch (error) {
+      // Reaction doesn't exist, that's fine
+      return { success: true, messageId, emoji };
+    }
   }
 }

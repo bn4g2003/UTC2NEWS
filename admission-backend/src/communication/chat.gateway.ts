@@ -218,4 +218,115 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return { success: false, error: error.message || 'Failed to mark as read' };
     }
   }
+
+  @SubscribeMessage('message:pin')
+  async handlePinMessage(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { messageId: string },
+  ) {
+    try {
+      const userId = client.data.userId;
+      if (!userId) return { success: false, error: 'User not authenticated' };
+
+      const message = await this.chatService.pinMessage(data.messageId, userId);
+
+      // Emit to all in room
+      this.server.to(`room:${message.roomId}`).emit('message:updated', message);
+
+      return { success: true, message };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  @SubscribeMessage('message:unpin')
+  async handleUnpinMessage(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { messageId: string },
+  ) {
+    try {
+      const userId = client.data.userId;
+      if (!userId) return { success: false, error: 'User not authenticated' };
+
+      const message = await this.chatService.unpinMessage(data.messageId, userId);
+
+      // Emit to all in room
+      this.server.to(`room:${message.roomId}`).emit('message:updated', message);
+
+      return { success: true, message };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  @SubscribeMessage('message:react')
+  async handleAddReaction(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { messageId: string; emoji: string },
+  ) {
+    try {
+      const userId = client.data.userId;
+      if (!userId) return { success: false, error: 'User not authenticated' };
+
+      const reaction = await this.chatService.addReaction(
+        data.messageId,
+        userId,
+        data.emoji,
+      );
+
+      // Get message to find roomId
+      const message = await this.chatService['prisma'].message.findUnique({
+        where: { id: data.messageId },
+        select: { roomId: true },
+      });
+
+      if (message) {
+        // Emit to all in room
+        this.server.to(`room:${message.roomId}`).emit('message:reaction:added', {
+          messageId: data.messageId,
+          reaction,
+        });
+      }
+
+      return { success: true, reaction };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  @SubscribeMessage('message:unreact')
+  async handleRemoveReaction(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { messageId: string; emoji: string },
+  ) {
+    try {
+      const userId = client.data.userId;
+      if (!userId) return { success: false, error: 'User not authenticated' };
+
+      const result = await this.chatService.removeReaction(
+        data.messageId,
+        userId,
+        data.emoji,
+      );
+
+      // Get message to find roomId
+      const message = await this.chatService['prisma'].message.findUnique({
+        where: { id: data.messageId },
+        select: { roomId: true },
+      });
+
+      if (message) {
+        // Emit to all in room
+        this.server.to(`room:${message.roomId}`).emit('message:reaction:removed', {
+          messageId: data.messageId,
+          emoji: data.emoji,
+          userId,
+        });
+      }
+
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
 }

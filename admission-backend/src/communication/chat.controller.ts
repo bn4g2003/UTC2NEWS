@@ -8,8 +8,13 @@ import {
   UseGuards,
   Request,
   Delete,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ChatService } from './chat.service';
+import { CmsService } from '../cms/cms.service';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { AddMemberDto } from './dto/add-member.dto';
 import { RemoveMemberDto } from './dto/remove-member.dto';
@@ -18,7 +23,24 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 @Controller('chat')
 @UseGuards(JwtAuthGuard)
 export class ChatController {
-  constructor(private readonly chatService: ChatService) { }
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly cmsService: CmsService
+  ) { }
+
+  @Post('upload')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadFile(
+    @UploadedFile() file: Express.Multer.File,
+    @Request() req
+  ) {
+    if (!file) {
+      throw new BadRequestException('No file provided');
+    }
+
+    // Reuse CMS service upload logic
+    return this.cmsService.uploadMediaFile(file, req.user.userId);
+  }
 
   @Post('rooms')
   async createRoom(@Body() createRoomDto: CreateRoomDto, @Request() req) {
@@ -44,6 +66,11 @@ export class ChatController {
       limitNum,
       before,
     );
+  }
+
+  @Get('rooms/:roomId/pinned')
+  async getPinnedMessages(@Param('roomId') roomId: string, @Request() req) {
+    return this.chatService.getPinnedMessages(roomId, req.user.userId);
   }
 
   @Get('channels/public')

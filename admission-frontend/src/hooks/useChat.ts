@@ -21,6 +21,7 @@ export function useChat() {
     setActiveRoom,
     addMessage,
     setMessages,
+    updateMessage,
     addTypingUser,
     removeTypingUser,
     addOnlineUser,
@@ -59,6 +60,34 @@ export function useChat() {
       socket.on('message:new', (message: any) => {
         console.log('New message received:', message);
         addMessage(message);
+      });
+
+      socket.on('message:updated', (message: any) => {
+        console.log('Message updated:', message);
+        updateMessage(message);
+      });
+
+      socket.on('message:reaction:added', ({ messageId, reaction }: any) => {
+        console.log('Reaction added:', { messageId, reaction });
+        // Reload messages for the room to get updated reactions
+        // Or update locally if we have the message
+        const roomId = Object.keys(messages).find(rId =>
+          messages[rId]?.some(m => m.id === messageId)
+        );
+        if (roomId) {
+          loadMessages(roomId);
+        }
+      });
+
+      socket.on('message:reaction:removed', ({ messageId, emoji, userId }: any) => {
+        console.log('Reaction removed:', { messageId, emoji, userId });
+        // Reload messages for the room to get updated reactions
+        const roomId = Object.keys(messages).find(rId =>
+          messages[rId]?.some(m => m.id === messageId)
+        );
+        if (roomId) {
+          loadMessages(roomId);
+        }
       });
 
       socket.on('room:created', (room: any) => {
@@ -377,7 +406,76 @@ export function useChat() {
     stopTyping,
     markAsRead,
     addMembers,
+    removeMember: useCallback(async (roomId: string, userId: string) => {
+      if (!token) return;
+      try {
+        await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000'}/api/chat/rooms/members/remove`,
+          {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ roomId, userId }),
+          }
+        );
+        loadRooms();
+      } catch (error) {
+        console.error('Failed to remove member:', error);
+        throw error;
+      }
+    }, [token, loadRooms]),
     deleteMessage,
     deleteRoom,
+    socketRef,
+    pinMessage: useCallback((messageId: string) => {
+      if (!socketRef.current?.connected) return;
+      socketRef.current.emit('message:pin', { messageId });
+    }, []),
+    unpinMessage: useCallback((messageId: string) => {
+      if (!socketRef.current?.connected) return;
+      socketRef.current.emit('message:unpin', { messageId });
+    }, []),
+    uploadFile: useCallback(async (file: File) => {
+      if (!token) throw new Error('Not authenticated');
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000'}/api/chat/upload`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to upload file');
+      }
+
+      return response.json();
+      return response.json();
+    }, [token]),
+    loadPinnedMessages: useCallback(async (roomId: string) => {
+      if (!token) return [];
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000'}/api/chat/rooms/${roomId}/pinned`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        if (!response.ok) return [];
+        return response.json();
+      } catch (error) {
+        console.error('Failed to load pinned messages:', error);
+        return [];
+      }
+    }, [token]),
   };
 }

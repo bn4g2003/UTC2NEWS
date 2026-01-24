@@ -63,6 +63,7 @@ interface ChatStore {
   setConnected: (connected: boolean) => void;
   reset: () => void;
   removeMessage: (messageId: string, roomId: string) => void;
+  updateMessage: (message: Message) => void;
   removeRoom: (roomId: string) => void;
 }
 
@@ -119,6 +120,19 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           [message.roomId]: [...roomMessages, message],
         },
         rooms: updatedRooms,
+      };
+    }),
+
+  updateMessage: (message) =>
+    set((state) => {
+      const roomMessages = state.messages[message.roomId] || [];
+      return {
+        messages: {
+          ...state.messages,
+          [message.roomId]: roomMessages.map((m) =>
+            m.id === message.id ? message : m
+          ),
+        },
       };
     }),
 

@@ -21,6 +21,7 @@ model User {
   roles                   UserRole[]
   chatRoomParticipants    ChatRoomParticipant[]
   sentMessages            Message[]
+  messageReactions        MessageReaction[]
   presence                UserPresence?
   createdChatRooms        ChatRoom[]            @relation("CreatedChatRooms")
   hostedVideoSessions     VideoSession[]
@@ -317,20 +318,36 @@ model ChatRoomParticipant {
 }
 
 model Message {
-  id        String      @id @default(uuid())
+  id        String            @id @default(uuid())
   roomId    String
   senderId  String
   content   String
-  type      MessageType @default(TEXT)
+  type      MessageType       @default(TEXT)
+  isPinned  Boolean           @default(false)
   metadata  Json?
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
   deletedAt DateTime?
-  room      ChatRoom    @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  sender    User        @relation(fields: [senderId], references: [id])
+  room      ChatRoom          @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sender    User              @relation(fields: [senderId], references: [id])
+  reactions MessageReaction[]
 
   @@index([roomId, createdAt])
   @@map("messages")
+}
+
+model MessageReaction {
+  id        String   @id @default(uuid())
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
+  @@map("message_reactions")
 }
 
 model UserPresence {

@@ -8,6 +8,7 @@
 
 import { ReactNode } from 'react';
 import { Layout } from 'antd';
+import { usePathname } from 'next/navigation';
 import { Sidebar, Header, Breadcrumb } from '@/components/admin/AdminLayout';
 import { useSidebarCollapse } from '@/hooks/useSidebarCollapse';
 
@@ -15,6 +16,8 @@ const { Content } = Layout;
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useSidebarCollapse();
+  const pathname = usePathname();
+  const isChatPage = pathname?.includes('/chat');
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -27,27 +30,32 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         <Header collapsed={collapsed} onMenuClick={() => setCollapsed(!collapsed)} />
 
         {/* Content */}
-        <Content style={{ margin: '0 16px' }}>
-          {/* Breadcrumb */}
-          <Breadcrumb />
+        <Content style={{ margin: isChatPage ? 0 : '0 16px', display: 'flex', flexDirection: 'column' }}>
+          {/* Breadcrumb - hide on chat page */}
+          {!isChatPage && <Breadcrumb />}
 
           {/* Page Content */}
           <div
             style={{
-              padding: 24,
+              padding: isChatPage ? 0 : 24,
               minHeight: 360,
               background: '#fff',
-              borderRadius: 8,
+              borderRadius: isChatPage ? 0 : 8,
+              flex: 1, // Ensure content takes remaining space
+              display: isChatPage ? 'flex' : 'block', // Chat needs flex container behavior usually
+              flexDirection: 'column',
             }}
           >
             {children}
           </div>
         </Content>
 
-        {/* Footer */}
-        <Layout.Footer style={{ textAlign: 'center' }}>
-          Admission Management System ©{new Date().getFullYear()}
-        </Layout.Footer>
+        {/* Footer - hide on chat page */}
+        {!isChatPage && (
+          <Layout.Footer style={{ textAlign: 'center' }}>
+            Admission Management System ©{new Date().getFullYear()}
+          </Layout.Footer>
+        )}
       </Layout>
     </Layout>
   );
