@@ -79,15 +79,15 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
 
   // Define menu items with permissions
   const menuItems: MenuItem[] = [
-    createMenuItem('Dashboard', ROUTES.ADMIN.DASHBOARD, <DashboardOutlined />),
+    createMenuItem('Trang chủ', ROUTES.ADMIN.DASHBOARD, <DashboardOutlined />),
 
     // System Management Group
     createMenuItem(
-      'Hệ thống',
+      'Quản lý hệ thống',
       'system',
       <SettingOutlined />,
       [
-        createMenuItem('Quản lý người dùng', ROUTES.ADMIN.USERS, <UserOutlined />, undefined, PERMISSIONS.USERS.READ),
+        createMenuItem('Người dùng', ROUTES.ADMIN.USERS, <UserOutlined />, undefined, PERMISSIONS.USERS.READ),
         createMenuItem('Vai trò & Quyền', ROUTES.ADMIN.ROLES, <TeamOutlined />, undefined, PERMISSIONS.ROLES.READ),
       ]
     ),
@@ -98,35 +98,35 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
       'admission_data',
       <DatabaseOutlined />,
       [
-        createMenuItem('Quản lý đợt tuyển sinh', ROUTES.ADMIN.SESSIONS, <CalendarOutlined />, undefined, PERMISSIONS.SESSIONS.READ),
-        createMenuItem('Quản lý ngành', ROUTES.ADMIN.PROGRAMS, <BookOutlined />, undefined, PERMISSIONS.PROGRAMS.READ),
-        createMenuItem('Quản lý thí sinh', ROUTES.ADMIN.STUDENTS, <SolutionOutlined />, undefined, PERMISSIONS.STUDENTS.READ),
-        createMenuItem('Quản lý nguyện vọng', ROUTES.ADMIN.PREFERENCES, <SolutionOutlined />, undefined, PERMISSIONS.STUDENTS.READ),
+        createMenuItem('Đợt tuyển sinh', ROUTES.ADMIN.SESSIONS, <CalendarOutlined />, undefined, PERMISSIONS.SESSIONS.READ),
+        createMenuItem('Ngành học', ROUTES.ADMIN.PROGRAMS, <BookOutlined />, undefined, PERMISSIONS.PROGRAMS.READ),
+        createMenuItem('Thí sinh', ROUTES.ADMIN.STUDENTS, <SolutionOutlined />, undefined, PERMISSIONS.STUDENTS.READ),
+        createMenuItem('Nguyện vọng', ROUTES.ADMIN.PREFERENCES, <SolutionOutlined />, undefined, PERMISSIONS.STUDENTS.READ),
       ]
     ),
 
     // Admission Process Group
     createMenuItem(
-      'Quy trình xét tuyển',
+      'Xét tuyển',
       'admission_process',
       <ThunderboltOutlined />,
       [
         createMenuItem('Lọc ảo', ROUTES.ADMIN.FILTER, <FilterOutlined />, undefined, PERMISSIONS.FILTER.EXECUTE),
-        createMenuItem('Kết quả tuyển sinh', ROUTES.ADMIN.RESULTS, <FileTextOutlined />, undefined, PERMISSIONS.RESULTS.READ),
-        createMenuItem('Gửi email thông báo', ROUTES.ADMIN.EMAIL, <MailOutlined />, undefined, PERMISSIONS.EMAIL.SEND),
+        createMenuItem('Kết quả', ROUTES.ADMIN.RESULTS, <FileTextOutlined />, undefined, PERMISSIONS.RESULTS.READ),
+        createMenuItem('Gửi email', ROUTES.ADMIN.EMAIL, <MailOutlined />, undefined, PERMISSIONS.EMAIL.SEND),
       ]
     ),
 
     // Content Management Section
     createMenuItem(
-      'Quản lý nội dung',
+      'Nội dung',
       'cms',
       <FileImageOutlined />,
       [
         createMenuItem('Bài viết', ROUTES.ADMIN.CMS.POSTS, <FileTextOutlined />, undefined, PERMISSIONS.CMS.POSTS.READ),
         createMenuItem('Danh mục', ROUTES.ADMIN.CMS.CATEGORIES, <FolderOutlined />, undefined, PERMISSIONS.CMS.CATEGORIES.READ),
-        createMenuItem('Câu hỏi thường gặp', ROUTES.ADMIN.CMS.FAQS, <QuestionCircleOutlined />, undefined, PERMISSIONS.CMS.FAQS.READ),
-        createMenuItem('Thư viện ảnh', ROUTES.ADMIN.CMS.MEDIA, <PictureOutlined />, undefined, PERMISSIONS.CMS.MEDIA.READ),
+        createMenuItem('FAQ', ROUTES.ADMIN.CMS.FAQS, <QuestionCircleOutlined />, undefined, PERMISSIONS.CMS.FAQS.READ),
+        createMenuItem('Thư viện', ROUTES.ADMIN.CMS.MEDIA, <PictureOutlined />, undefined, PERMISSIONS.CMS.MEDIA.READ),
       ]
     ),
   ];
@@ -235,13 +235,38 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: 'white',
-          fontSize: collapsed ? 16 : 20,
-          fontWeight: 'bold',
+          padding: collapsed ? '8px' : '12px 16px',
           borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+          backgroundColor: '#001529',
         }}
       >
-        {collapsed ? 'AMS' : 'Admission System'}
+        {collapsed ? (
+          <img 
+            src="/logo.png" 
+            alt="UTC2" 
+            style={{ 
+              height: 40,
+              width: 'auto',
+              objectFit: 'contain'
+            }} 
+          />
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <img 
+              src="/logo.png" 
+              alt="UTC2" 
+              style={{ 
+                height: 40,
+                width: 'auto',
+                objectFit: 'contain'
+              }} 
+            />
+            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
+              <span style={{ color: 'white', fontSize: 14, fontWeight: 700 }}>UTC2</span>
+              <span style={{ color: 'rgba(255,255,255,0.65)', fontSize: 11 }}>Hệ thống tuyển sinh</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Navigation Menu */}

@@ -81,7 +81,7 @@ export class ResultController {
   @RequirePermissions('results:read')
   @ApiOperation({
     summary: 'Get admission results as JSON',
-    description: 'Retrieve list of all admitted students for a session with their details'
+    description: 'Retrieve list of all students with their admission status (one row per student)'
   })
   @ApiParam({ name: 'id', description: 'Admission session ID' })
   @ApiResponse({
@@ -93,6 +93,6 @@ export class ResultController {
   async getResults(
     @Param('id') sessionId: string,
   ) {
-    return this.resultExportService.formatResultData(sessionId);
+    return this.resultExportService.getStudentResults(sessionId);
   }
 }

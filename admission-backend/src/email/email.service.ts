@@ -8,12 +8,12 @@ export class EmailService {
 
   constructor() {
     this.transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT || '587', 10),
-      secure: process.env.SMTP_SECURE === 'true',
+      host: process.env.EMAIL_HOST || process.env.SMTP_HOST,
+      port: parseInt(process.env.EMAIL_PORT || process.env.SMTP_PORT || '587', 10),
+      secure: process.env.EMAIL_SECURE === 'true' || process.env.SMTP_SECURE === 'true',
       auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASSWORD,
+        user: process.env.EMAIL_USER || process.env.SMTP_USER,
+        pass: process.env.EMAIL_PASSWORD || process.env.SMTP_PASSWORD,
       },
     });
   }
@@ -26,7 +26,7 @@ export class EmailService {
     const html = this.generateAdmissionEmailTemplate(data);
 
     await this.transporter.sendMail({
-      from: process.env.SMTP_FROM || 'noreply@admission.edu.vn',
+      from: process.env.EMAIL_FROM || process.env.SMTP_FROM || 'noreply@admission.edu.vn',
       to,
       subject,
       html,
@@ -34,119 +34,845 @@ export class EmailService {
   }
 
   private generateAdmissionEmailTemplate(data: AdmissionEmailData): string {
+    // Generate different templates based on admission status
+    if (data.isAdmitted) {
+      return this.generateAdmittedTemplate(data);
+    } else {
+      return this.generateNotAdmittedTemplate(data);
+    }
+  }
+
+  private generateAdmittedTemplate(data: AdmissionEmailData): string {
     return `
 <!DOCTYPE html>
-<html>
+<html lang="vi">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kết quả xét tuyển</title>
   <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
     body {
-      font-family: Arial, sans-serif;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       line-height: 1.6;
       color: #333;
-      max-width: 600px;
-      margin: 0 auto;
+      background-color: #f5f5f5;
       padding: 20px;
+    }
+    .email-container {
+      max-width: 650px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
     .header {
-      background-color: #0066cc;
+      background: linear-gradient(135deg, #0066cc 0%, #004999 100%);
       color: white;
-      padding: 20px;
+      padding: 30px 20px;
       text-align: center;
-      border-radius: 5px 5px 0 0;
+    }
+    .header h1 {
+      font-size: 26px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .header p {
+      font-size: 14px;
+      opacity: 0.95;
+      font-style: italic;
     }
     .content {
-      background-color: #f9f9f9;
-      padding: 30px;
-      border: 1px solid #ddd;
-      border-radius: 0 0 5px 5px;
+      padding: 40px 30px;
+    }
+    .greeting {
+      font-size: 16px;
+      margin-bottom: 20px;
+      color: #333;
     }
     .result-box {
-      background-color: #e8f5e9;
-      border-left: 4px solid #4caf50;
-      padding: 15px;
-      margin: 20px 0;
+      background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+      border-left: 5px solid #4caf50;
+      padding: 25px;
+      margin: 25px 0;
+      border-radius: 6px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .result-box h2 {
+      font-size: 22px;
+      color: #2e7d32;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .result-box p {
+      font-size: 15px;
+      color: #1b5e20;
+      margin: 5px 0;
+    }
+    .info-section {
+      margin: 30px 0;
+    }
+    .info-section h3 {
+      font-size: 18px;
+      color: #0066cc;
+      margin-bottom: 15px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #e0e0e0;
     }
     .info-row {
-      margin: 10px 0;
-      padding: 8px 0;
-      border-bottom: 1px solid #ddd;
+      display: flex;
+      padding: 12px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .info-row:last-child {
+      border-bottom: none;
     }
     .label {
-      font-weight: bold;
+      font-weight: 600;
       color: #555;
+      min-width: 200px;
+      flex-shrink: 0;
     }
     .value {
       color: #000;
+      font-weight: 500;
+    }
+    .important-note {
+      background-color: #fff3cd;
+      border-left: 5px solid #ffc107;
+      padding: 20px;
+      margin: 30px 0;
+      border-radius: 6px;
+    }
+    .important-note h4 {
+      font-size: 16px;
+      color: #856404;
+      margin-bottom: 12px;
+      font-weight: 700;
+    }
+    .important-note ul {
+      margin: 10px 0;
+      padding-left: 20px;
+    }
+    .important-note li {
+      margin: 8px 0;
+      color: #856404;
+      font-size: 14px;
+    }
+    .contact-info {
+      background-color: #f8f9fa;
+      padding: 20px;
+      border-radius: 6px;
+      margin: 25px 0;
+    }
+    .contact-info h4 {
+      font-size: 16px;
+      color: #333;
+      margin-bottom: 12px;
+    }
+    .contact-item {
+      display: flex;
+      align-items: center;
+      margin: 10px 0;
+      font-size: 14px;
+      color: #555;
+    }
+    .contact-item strong {
+      min-width: 100px;
+      color: #0066cc;
+    }
+    .signature {
+      margin-top: 35px;
+      padding-top: 20px;
+      border-top: 1px solid #e0e0e0;
+    }
+    .signature p {
+      margin: 5px 0;
+      font-size: 15px;
+    }
+    .signature strong {
+      color: #0066cc;
+      font-size: 16px;
     }
     .footer {
-      margin-top: 30px;
-      padding-top: 20px;
-      border-top: 1px solid #ddd;
-      font-size: 12px;
-      color: #666;
+      background-color: #f8f9fa;
+      padding: 25px 30px;
       text-align: center;
+      font-size: 13px;
+      color: #666;
+      border-top: 1px solid #e0e0e0;
+    }
+    .footer p {
+      margin: 5px 0;
+    }
+    .divider {
+      height: 2px;
+      background: linear-gradient(to right, transparent, #0066cc, transparent);
+      margin: 25px 0;
+    }
+    @media only screen and (max-width: 600px) {
+      .email-container {
+        border-radius: 0;
+      }
+      .content {
+        padding: 25px 20px;
+      }
+      .info-row {
+        flex-direction: column;
+      }
+      .label {
+        min-width: auto;
+        margin-bottom: 4px;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="header">
-    <h1>THÔNG BÁO KẾT QUẢ XÉT TUYỂN</h1>
-    <p>ADMISSION RESULT NOTIFICATION</p>
+  <div class="email-container">
+    <div class="header">
+      <h1>🎓 Thông Báo Kết Quả Xét Tuyển</h1>
+      </div>
+    
+    <div class="content">
+      <div class="greeting">
+        <p><strong>Kính gửi:</strong> ${data.studentName}</p>
+        </div>
+      
+      <p style="margin: 20px 0; font-size: 15px; line-height: 1.8;">
+        Trường Đại học xin trân trọng thông báo kết quả xét tuyển của bạn. 
+        Chúng tôi rất vui mừng được chào đón bạn gia nhập cộng đồng sinh viên của chúng tôi.
+      </p>
+      
+      <div class="result-box">
+        <h2>
+          <span style="font-size: 28px;">🎉</span>
+          <span>CHÚC MỪNG! CONGRATULATIONS!</span>
+        </h2>
+        <p style="font-size: 16px; font-weight: 600; margin-top: 10px;">
+          Bạn đã TRÚNG TUYỂN vào chương trình đào tạo của trường chúng tôi!
+        </p>
+        <p style="font-size: 14px; margin-top: 5px;">
+          </div>
+      
+      <div class="divider"></div>
+      
+      <div class="info-section">
+        <h3>📋 Thông tin trúng tuyển</h3>
+        
+        <div class="info-row">
+          <span class="label">🎯 Ngành học / Major:</span>
+          <span class="value">${data.majorName}</span>
+        </div>
+        
+        <div class="info-row">
+          <span class="label">📝 Phương thức xét tuyển:</span>
+          <span class="value">${this.formatAdmissionMethod(data.admissionMethod)}</span>
+        </div>
+        
+        <div class="info-row">
+          <span class="label">⭐ Nguyện vọng trúng tuyển:</span>
+          <span class="value">Nguyện vọng ${data.preference} (NV${data.preference})</span>
+        </div>
+        
+        <div class="info-row">
+          <span class="label">📊 Điểm xét tuyển / Score:</span>
+          <span class="value" style="color: #4caf50; font-size: 18px; font-weight: 700;">${data.finalScore.toFixed(2)}</span>
+        </div>
+      </div>
+      
+      <div class="important-note">
+        <h4>⚠️ Lưu ý quan trọng</h4>
+        <ul>
+          <li><strong>Xác nhận nhập học:</strong> Vui lòng xác nhận nhập học theo hướng dẫn trên website của trường trong vòng 7 ngày kể từ ngày nhận email này.</li>
+          <li><strong>Enrollment Confirmation:</strong> <li><strong>Nộp hồ sơ:</strong> Chuẩn bị và nộp đầy đủ hồ sơ nhập học theo yêu cầu.</li>
+          <li><strong>Document Submission:</strong> Prepare and submit all required enrollment documents.</li>
+          <li><strong>Hạn chót:</strong> Vui lòng kiểm tra thông báo chính thức trên website để biết các mốc thời gian quan trọng.</li>
+          <li><strong>Deadline:</strong> Please check the official announcement on our website for important dates.</li>
+        </ul>
+      </div>
+      
+      <div class="contact-info">
+        <h4>📞 Thông tin liên hệ</h4>
+        <div class="contact-item">
+          <strong>📧 Email:</strong>
+          <span>tuyensinh@utc2.edu.vn</span>
+        </div>
+        <div class="contact-item">
+          <strong>☎️ Điện thoại:</strong>
+          <span>(028) 3512 0808</span>
+        </div>
+        <div class="contact-item">
+          <strong>🏢 Địa chỉ:</strong>
+          <span>Phòng Tuyển sinh, Tòa nhà A, Trường Đại học</span>
+        </div>
+        <div class="contact-item">
+          <strong>🌐 Website:</strong>
+          <span>https://utc2.edu.vn</span>
+        </div>
+      </div>
+      
+      <div class="signature">
+        <p>Một lần nữa, chúc mừng bạn đã trúng tuyển!</p>
+        <p><p style="margin-top: 20px;">Trân trọng,</p>
+        <p><strong>Ban Tuyển sinh</strong></p>
+        <p style="font-style: italic; color: #666;"></div>
+    </div>
+    
+    <div class="footer">
+      <p><strong>⚡ Email tự động / Email t? d?ng</strong></p>
+      <p>Đây là email được gửi tự động từ hệ thống. Vui lòng không trả lời trực tiếp email này.</p>
+      <p><p style="margin-top: 15px; color: #999;">© 2026 University Admission System. B?n quy?n thu?c v?.</p>
+    </div>
   </div>
-  
-  <div class="content">
-    <p>Kính gửi: <strong>${data.studentName}</strong></p>
-    <p>Dear: <strong>${data.studentName}</strong></p>
+</body>
+</html>
+    `;
+  }
+
+  private generateNotAdmittedTemplate(data: AdmissionEmailData): string {
+    return `
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kết quả xét tuyển</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background-color: #f5f5f5;
+      padding: 20px;
+    }
+    .email-container {
+      max-width: 650px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .header {
+      background: linear-gradient(135deg, #0066cc 0%, #004999 100%);
+      color: white;
+      padding: 30px 20px;
+      text-align: center;
+    }
+    .header h1 {
+      font-size: 26px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .header p {
+      font-size: 14px;
+      opacity: 0.95;
+      font-style: italic;
+    }
+    .content {
+      padding: 40px 30px;
+    }
+    .greeting {
+      font-size: 16px;
+      margin-bottom: 20px;
+      color: #333;
+    }
+    .result-box {
+      background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+      border-left: 5px solid #ff9800;
+      padding: 25px;
+      margin: 25px 0;
+      border-radius: 6px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .result-box h2 {
+      font-size: 22px;
+      color: #e65100;
+      margin-bottom: 12px;
+    }
+    .result-box p {
+      font-size: 15px;
+      color: #bf360c;
+      margin: 5px 0;
+    }
+    .info-section {
+      margin: 30px 0;
+    }
+    .info-section h3 {
+      font-size: 18px;
+      color: #0066cc;
+      margin-bottom: 15px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #e0e0e0;
+    }
+    .encouragement-box {
+      background-color: #e3f2fd;
+      border-left: 5px solid #2196f3;
+      padding: 20px;
+      margin: 30px 0;
+      border-radius: 6px;
+    }
+    .encouragement-box h4 {
+      font-size: 16px;
+      color: #1565c0;
+      margin-bottom: 12px;
+      font-weight: 700;
+    }
+    .encouragement-box ul {
+      margin: 10px 0;
+      padding-left: 20px;
+    }
+    .encouragement-box li {
+      margin: 8px 0;
+      color: #0d47a1;
+      font-size: 14px;
+    }
+    .contact-info {
+      background-color: #f8f9fa;
+      padding: 20px;
+      border-radius: 6px;
+      margin: 25px 0;
+    }
+    .contact-info h4 {
+      font-size: 16px;
+      color: #333;
+      margin-bottom: 12px;
+    }
+    .contact-item {
+      display: flex;
+      align-items: center;
+      margin: 10px 0;
+      font-size: 14px;
+      color: #555;
+    }
+    .contact-item strong {
+      min-width: 100px;
+      color: #0066cc;
+    }
+    .signature {
+      margin-top: 35px;
+      padding-top: 20px;
+      border-top: 1px solid #e0e0e0;
+    }
+    .signature p {
+      margin: 5px 0;
+      font-size: 15px;
+    }
+    .signature strong {
+      color: #0066cc;
+      font-size: 16px;
+    }
+    .footer {
+      background-color: #f8f9fa;
+      padding: 25px 30px;
+      text-align: center;
+      font-size: 13px;
+      color: #666;
+      border-top: 1px solid #e0e0e0;
+    }
+    .footer p {
+      margin: 5px 0;
+    }
+    .divider {
+      height: 2px;
+      background: linear-gradient(to right, transparent, #0066cc, transparent);
+      margin: 25px 0;
+    }
+    @media only screen and (max-width: 600px) {
+      .email-container {
+        border-radius: 0;
+      }
+      .content {
+        padding: 25px 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="email-container">
+    <div class="header">
+      <h1>🎓 Thông Báo Kết Quả Xét Tuyển</h1>
+      </div>
     
-    <div class="result-box">
-      <h2 style="margin-top: 0; color: #4caf50;">🎉 CHÚC MỪNG! CONGRATULATIONS!</h2>
-      <p>Bạn đã trúng tuyển vào chương trình đào tạo của trường chúng tôi.</p>
-      <p>You have been admitted to our institution.</p>
+    <div class="content">
+      <div class="greeting">
+        <p><strong>Kính gửi:</strong> ${data.studentName}</p>
+        </div>
+      
+      <p style="margin: 20px 0; font-size: 15px; line-height: 1.8;">
+        Trường Đại học xin trân trọng thông báo kết quả xét tuyển của bạn cho đợt tuyển sinh này.
+      </p>
+      
+      <div class="result-box">
+        <h2>📋 Kết quả xét tuyển</h2>
+        <p style="font-size: 15px; margin-top: 10px;">
+          Rất tiếc, bạn chưa đạt điều kiện trúng tuyển trong đợt tuyển sinh này.
+        </p>
+        <p style="font-size: 14px; margin-top: 5px;">
+          </div>
+      
+      <div class="divider"></div>
+      
+      <div class="encouragement-box">
+        <h4>💪 Đừng nản lòng! / Don't Give Up!</h4>
+        <p style="margin-bottom: 10px; color: #0d47a1;">
+          Chúng tôi khuyến khích bạn xem xét các lựa chọn sau:
+        </p>
+        <ul>
+          <li><strong>Đăng ký các ngành khác:</strong> Nhiều ngành vẫn còn chỉ tiêu tuyển sinh. Hãy xem xét các ngành phù hợp với năng lực và sở thích của bạn.</li>
+          <li><strong>Consider other programs:</strong> Many programs still have available slots. Consider programs that match your abilities and interests.</li>
+          <li><strong>Đợt tuyển sinh tiếp theo:</strong> Chuẩn bị tốt hơn và đăng ký lại trong đợt tuyển sinh tiếp theo.</li>
+          <li><strong>Next admission round:</strong> Prepare better and apply again in the <li><strong>Tư vấn trực tiếp:</strong> Liên hệ phòng tuyển sinh để được tư vấn chi tiết về các lựa chọn phù hợp.</li>
+          <li><strong>Direct consultation:</strong> Contact the Training Department - University of Transport and Communications in Ho Chi Minh City for detailed advice on suitable options.</li>
+        </ul>
+      </div>
+      
+      <div class="contact-info">
+        <h4>📞 Thông tin liên hệ</h4>
+        <div class="contact-item">
+          <strong>📧 Email:</strong>
+          <span>tuyensinh@utc2.edu.vn</span>
+        </div>
+        <div class="contact-item">
+          <strong>☎️ Điện thoại:</strong>
+          <span>(028) 3512 0808</span>
+        </div>
+        <div class="contact-item">
+          <strong>🏢 Địa chỉ:</strong>
+          <span>Phòng Tuyển sinh, Tòa nhà A, Trường Đại học</span>
+        </div>
+        <div class="contact-item">
+          <strong>🌐 Website:</strong>
+          <span>https://utc2.edu.vn</span>
+        </div>
+        <div class="contact-item">
+          <strong>⏰ Giờ làm việc:</strong>
+          <span>Thứ 2 - Thứ 6: 8:00 - 17:00</span>
+        </div>
+      </div>
+      
+      <div class="signature">
+        <p>Chúng tôi chúc bạn thành công trong tương lai!</p>
+        <p><p style="margin-top: 20px;">Trân trọng,</p>
+        <p><strong>Ban Tuyển sinh</strong></p>
+        <p style="font-style: italic; color: #666;"></div>
     </div>
     
-    <h3>Thông tin trúng tuyển / Admission Information:</h3>
-    
-    <div class="info-row">
-      <span class="label">Ngành học / Major:</span>
-      <span class="value">${data.majorName}</span>
+    <div class="footer">
+      <p><strong>⚡ Email tự động / Email t? d?ng</strong></p>
+      <p>Đây là email được gửi tự động từ hệ thống. Vui lòng không trả lời trực tiếp email này.</p>
+      <p><p style="margin-top: 15px; color: #999;">© 2026 University Admission System. B?n quy?n thu?c v?.</p>
     </div>
-    
-    <div class="info-row">
-      <span class="label">Phương thức xét tuyển / Admission Method:</span>
-      <span class="value">${this.formatAdmissionMethod(data.admissionMethod)}</span>
-    </div>
-    
-    <div class="info-row">
-      <span class="label">Nguyện vọng trúng tuyển / Admitted Preference:</span>
-      <span class="value">NV${data.preference}</span>
-    </div>
-    
-    <div class="info-row">
-      <span class="label">Điểm xét tuyển / Final Score:</span>
-      <span class="value">${data.finalScore.toFixed(2)}</span>
-    </div>
-    
-    <div style="margin-top: 30px; padding: 15px; background-color: #fff3cd; border-left: 4px solid #ffc107;">
-      <p style="margin: 0;"><strong>Lưu ý quan trọng / Important Notes:</strong></p>
-      <ul style="margin: 10px 0;">
-        <li>Vui lòng xác nhận nhập học theo hướng dẫn trên website của trường.</li>
-        <li>Please confirm your enrollment following the instructions on our website.</li>
-        <li>Hạn chót xác nhận: Vui lòng kiểm tra thông báo chính thức.</li>
-        <li>Confirmation deadline: Please check the official announcement.</li>
-      </ul>
-    </div>
-    
-    <p style="margin-top: 30px;">
-      Trân trọng,<br>
-      <strong>Ban Tuyển sinh</strong><br>
-      Admission Office
-    </p>
   </div>
-  
-  <div class="footer">
-    <p>Email này được gửi tự động. Vui lòng không trả lời email này.</p>
-    <p>This is an automated email. Please do not reply to this email.</p>
+</body>
+</html>
+    `;
+  }
+    return `
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kết quả xét tuyển</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background-color: #f5f5f5;
+      padding: 20px;
+    }
+    .email-container {
+      max-width: 650px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .header {
+      background: linear-gradient(135deg, #0066cc 0%, #004999 100%);
+      color: white;
+      padding: 30px 20px;
+      text-align: center;
+    }
+    .header h1 {
+      font-size: 26px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .header p {
+      font-size: 14px;
+      opacity: 0.95;
+      font-style: italic;
+    }
+    .content {
+      padding: 40px 30px;
+    }
+    .greeting {
+      font-size: 16px;
+      margin-bottom: 20px;
+      color: #333;
+    }
+    .result-box {
+      background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+      border-left: 5px solid #4caf50;
+      padding: 25px;
+      margin: 25px 0;
+      border-radius: 6px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .result-box h2 {
+      font-size: 22px;
+      color: #2e7d32;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .result-box p {
+      font-size: 15px;
+      color: #1b5e20;
+      margin: 5px 0;
+    }
+    .info-section {
+      margin: 30px 0;
+    }
+    .info-section h3 {
+      font-size: 18px;
+      color: #0066cc;
+      margin-bottom: 15px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #e0e0e0;
+    }
+    .info-row {
+      display: flex;
+      padding: 12px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .info-row:last-child {
+      border-bottom: none;
+    }
+    .label {
+      font-weight: 600;
+      color: #555;
+      min-width: 200px;
+      flex-shrink: 0;
+    }
+    .value {
+      color: #000;
+      font-weight: 500;
+    }
+    .important-note {
+      background-color: #fff3cd;
+      border-left: 5px solid #ffc107;
+      padding: 20px;
+      margin: 30px 0;
+      border-radius: 6px;
+    }
+    .important-note h4 {
+      font-size: 16px;
+      color: #856404;
+      margin-bottom: 12px;
+      font-weight: 700;
+    }
+    .important-note ul {
+      margin: 10px 0;
+      padding-left: 20px;
+    }
+    .important-note li {
+      margin: 8px 0;
+      color: #856404;
+      font-size: 14px;
+    }
+    .contact-info {
+      background-color: #f8f9fa;
+      padding: 20px;
+      border-radius: 6px;
+      margin: 25px 0;
+    }
+    .contact-info h4 {
+      font-size: 16px;
+      color: #333;
+      margin-bottom: 12px;
+    }
+    .contact-item {
+      display: flex;
+      align-items: center;
+      margin: 10px 0;
+      font-size: 14px;
+      color: #555;
+    }
+    .contact-item strong {
+      min-width: 100px;
+      color: #0066cc;
+    }
+    .signature {
+      margin-top: 35px;
+      padding-top: 20px;
+      border-top: 1px solid #e0e0e0;
+    }
+    .signature p {
+      margin: 5px 0;
+      font-size: 15px;
+    }
+    .signature strong {
+      color: #0066cc;
+      font-size: 16px;
+    }
+    .footer {
+      background-color: #f8f9fa;
+      padding: 25px 30px;
+      text-align: center;
+      font-size: 13px;
+      color: #666;
+      border-top: 1px solid #e0e0e0;
+    }
+    .footer p {
+      margin: 5px 0;
+    }
+    .divider {
+      height: 2px;
+      background: linear-gradient(to right, transparent, #0066cc, transparent);
+      margin: 25px 0;
+    }
+    @media only screen and (max-width: 600px) {
+      .email-container {
+        border-radius: 0;
+      }
+      .content {
+        padding: 25px 20px;
+      }
+      .info-row {
+        flex-direction: column;
+      }
+      .label {
+        min-width: auto;
+        margin-bottom: 4px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="email-container">
+    <div class="header">
+      <h1>🎓 Thông Báo Kết Quả Xét Tuyển</h1>
+      </div>
+    
+    <div class="content">
+      <div class="greeting">
+        <p><strong>Kính gửi:</strong> ${data.studentName}</p>
+        </div>
+      
+      <p style="margin: 20px 0; font-size: 15px; line-height: 1.8;">
+        Trường Đại học xin trân trọng thông báo kết quả xét tuyển của bạn. 
+        Chúng tôi rất vui mừng được chào đón bạn gia nhập cộng đồng sinh viên của chúng tôi.
+      </p>
+      
+      <div class="result-box">
+        <h2>
+          <span style="font-size: 28px;">🎉</span>
+          <span>CHÚC MỪNG! CONGRATULATIONS!</span>
+        </h2>
+        <p style="font-size: 16px; font-weight: 600; margin-top: 10px;">
+          Bạn đã TRÚNG TUYỂN vào chương trình đào tạo của trường chúng tôi!
+        </p>
+        <p style="font-size: 14px; margin-top: 5px;">
+          </div>
+      
+      <div class="divider"></div>
+      
+      <div class="info-section">
+        <h3>📋 Thông tin trúng tuyển</h3>
+        
+        <div class="info-row">
+          <span class="label">🎯 Ngành học / Major:</span>
+          <span class="value">${data.majorName}</span>
+        </div>
+        
+        <div class="info-row">
+          <span class="label">📝 Phương thức xét tuyển:</span>
+          <span class="value">${this.formatAdmissionMethod(data.admissionMethod)}</span>
+        </div>
+        
+        <div class="info-row">
+          <span class="label">⭐ Nguyện vọng trúng tuyển:</span>
+          <span class="value">Nguyện vọng ${data.preference} (NV${data.preference})</span>
+        </div>
+        
+        <div class="info-row">
+          <span class="label">📊 Điểm xét tuyển / Score:</span>
+          <span class="value" style="color: #4caf50; font-size: 18px; font-weight: 700;">${data.finalScore.toFixed(2)}</span>
+        </div>
+      </div>
+      
+      <div class="important-note">
+        <h4>⚠️ Lưu ý quan trọng</h4>
+        <ul>
+          <li><strong>Xác nhận nhập học:</strong> Vui lòng xác nhận nhập học theo hướng dẫn trên website của trường trong vòng 7 ngày kể từ ngày nhận email này.</li>
+          <li><strong>Enrollment Confirmation:</strong> <li><strong>Nộp hồ sơ:</strong> Chuẩn bị và nộp đầy đủ hồ sơ nhập học theo yêu cầu.</li>
+          <li><strong>Document Submission:</strong> Prepare and submit all required enrollment documents.</li>
+          <li><strong>Hạn chót:</strong> Vui lòng kiểm tra thông báo chính thức trên website để biết các mốc thời gian quan trọng.</li>
+          <li><strong>Deadline:</strong> Please check the official announcement on our website for important dates.</li>
+        </ul>
+      </div>
+      
+      <div class="contact-info">
+        <h4>📞 Thông tin liên hệ</h4>
+        <div class="contact-item">
+          <strong>📧 Email:</strong>
+          <span>tuyensinh@utc2.edu.vn</span>
+        </div>
+        <div class="contact-item">
+          <strong>☎️ Điện thoại:</strong>
+          <span>(028) 3512 0808</span>
+        </div>
+        <div class="contact-item">
+          <strong>🏢 Địa chỉ:</strong>
+          <span>Phòng Tuyển sinh, Tòa nhà A, Trường Đại học</span>
+        </div>
+        <div class="contact-item">
+          <strong>🌐 Website:</strong>
+          <span>https://utc2.edu.vn</span>
+        </div>
+      </div>
+      
+      <div class="signature">
+        <p>Một lần nữa, chúc mừng bạn đã trúng tuyển!</p>
+        <p><p style="margin-top: 20px;">Trân trọng,</p>
+        <p><strong>Ban Tuyển sinh</strong></p>
+        <p style="font-style: italic; color: #666;"></div>
+    </div>
+    
+    <div class="footer">
+      <p><strong>⚡ Email tự động / Email t? d?ng</strong></p>
+      <p>Đây là email được gửi tự động từ hệ thống. Vui lòng không trả lời trực tiếp email này.</p>
+      <p><p style="margin-top: 15px; color: #999;">© 2026 University Admission System. B?n quy?n thu?c v?.</p>
+    </div>
   </div>
 </body>
 </html>
@@ -155,10 +881,15 @@ export class EmailService {
 
   private formatAdmissionMethod(method: string): string {
     const methodMap: Record<string, string> = {
-      entrance_exam: 'Xét tuyển theo kỳ thi / Entrance Exam',
-      high_school_transcript: 'Xét tuyển học bạ / High School Transcript',
+      entrance_exam: 'Xét tuyển theo kỳ thi đầu vào / Entrance Exam',
+      high_school_transcript: 'Xét tuyển học bạ THPT / High School Transcript',
       direct_admission: 'Xét tuyển thẳng / Direct Admission',
+      competency_assessment: 'Đánh giá năng lực / Competency Assessment',
+      international_exam: 'Chứng chỉ quốc tế / International Exam',
     };
     return methodMap[method] || method;
   }
 }
+
+
+

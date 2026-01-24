@@ -28,7 +28,6 @@ export class ResultsService {
             },
         });
     }
-
     /**
      * Get admission results as JSON
      * Retrieve list of all admitted students for a session with their details

@@ -10,6 +10,7 @@ export interface AdmissionEmailData {
   admissionMethod: string;
   finalScore: number;
   preference: number;
+  isAdmitted: boolean; // New field to distinguish admitted vs not admitted
 }
 
 export interface EmailJob {
@@ -27,38 +28,71 @@ export class EmailQueueService {
   ) {}
 
   async queueAdmissionEmails(sessionId: string): Promise<void> {
-    // Get all admitted students for the session
-    const admittedApplications = await this.prisma.application.findMany({
+    // Get all students in the session with their applications
+    const students = await this.prisma.student.findMany({
       where: {
         sessionId,
-        admissionStatus: 'admitted',
+        email: {
+          not: null,
+        },
       },
       include: {
-        student: true,
-        major: true,
+        applications: {
+          where: {
+            sessionId,
+          },
+          include: {
+            major: true,
+          },
+          orderBy: {
+            preferencePriority: 'asc',
+          },
+        },
       },
     });
 
     // Create email notification records and queue jobs
-    for (const application of admittedApplications) {
-      const { student, major } = application;
-
-      if (!student.email) {
+    for (const student of students) {
+      if (!student.email || student.applications.length === 0) {
         console.warn(
-          `Student ${student.id} does not have an email address. Skipping.`,
+          `Student ${student.id} does not have an email address or applications. Skipping.`,
         );
         continue;
       }
 
-      const templateData: AdmissionEmailData = {
-        studentName: student.fullName,
-        majorName: major.name,
-        admissionMethod: application.admissionMethod,
-        finalScore: application.calculatedScore
-          ? parseFloat(application.calculatedScore.toString())
-          : 0,
-        preference: application.preferencePriority,
-      };
+      // Check if student is admitted
+      const admittedApplication = student.applications.find(
+        app => app.admissionStatus === 'admitted'
+      );
+
+      let templateData: AdmissionEmailData;
+
+      if (admittedApplication) {
+        // Student is admitted - use admitted application data
+        templateData = {
+          studentName: student.fullName,
+          majorName: admittedApplication.major.name,
+          admissionMethod: admittedApplication.admissionMethod,
+          finalScore: admittedApplication.calculatedScore
+            ? parseFloat(admittedApplication.calculatedScore.toString())
+            : 0,
+          preference: admittedApplication.preferencePriority,
+          isAdmitted: true,
+        };
+      } else {
+        // Student is not admitted - use first preference data
+        const firstPreference = student.applications[0];
+        templateData = {
+          studentName: student.fullName,
+          majorName: firstPreference.major.name,
+          admissionMethod: firstPreference.admissionMethod,
+          finalScore: firstPreference.calculatedScore
+            ? parseFloat(firstPreference.calculatedScore.toString())
+            : 0,
+          preference: firstPreference.preferencePriority,
+          isAdmitted: false,
+        };
+      }
 
       // Create email notification record in database
       const emailNotification = await this.prisma.emailNotification.create({
@@ -120,6 +154,48 @@ export class EmailQueueService {
       attempts: notification.attempts,
       lastError: notification.lastError,
       status: notification.status,
+    };
+  }
+
+  async getRecipientCount(sessionId: string): Promise<{
+    count: number;
+    admitted: number;
+    notAdmitted: number;
+  }> {
+    // Count all students with applications in this session who have email addresses
+    const allStudents = await this.prisma.student.findMany({
+      where: {
+        sessionId,
+        email: {
+          not: null,
+        },
+      },
+      include: {
+        applications: {
+          where: {
+            sessionId,
+          },
+        },
+      },
+    });
+
+    // Count admitted students
+    const admitted = allStudents.filter(student => 
+      student.applications.some(app => app.admissionStatus === 'admitted')
+    ).length;
+
+    // Count not admitted students (have applications but none admitted)
+    const notAdmitted = allStudents.filter(student => 
+      student.applications.length > 0 && 
+      !student.applications.some(app => app.admissionStatus === 'admitted')
+    ).length;
+
+    const count = allStudents.length;
+
+    return {
+      count,
+      admitted,
+      notAdmitted,
     };
   }
 }

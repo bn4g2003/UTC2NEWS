@@ -93,4 +93,40 @@ export class EmailController {
 
     return status;
   }
+
+  @Get('sessions/:id/recipient-count')
+  @RequirePermissions('emails:read')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ 
+    summary: 'Get recipient count for email', 
+    description: 'Get the count of students who will receive emails based on filters' 
+  })
+  @ApiParam({ name: 'id', description: 'Admission session ID' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Recipient count retrieved successfully',
+    schema: {
+      properties: {
+        count: { type: 'number', example: 11 },
+        admitted: { type: 'number', example: 8 },
+        notAdmitted: { type: 'number', example: 3 },
+        sessionId: { type: 'string' }
+      }
+    }
+  })
+  @ApiResponse({ status: 403, description: 'Forbidden - requires emails:read permission' })
+  @ApiResponse({ status: 404, description: 'Session not found' })
+  async getRecipientCount(@Param('id') sessionId: string): Promise<{
+    count: number;
+    admitted: number;
+    notAdmitted: number;
+    sessionId: string;
+  }> {
+    const counts = await this.emailQueueService.getRecipientCount(sessionId);
+
+    return {
+      ...counts,
+      sessionId,
+    };
+  }
 }

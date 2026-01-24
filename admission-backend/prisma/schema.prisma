@@ -79,23 +79,37 @@ model Category {
 }
 
 model Post {
-  id            String     @id @default(uuid())
+  id            String      @id @default(uuid())
   title         String
-  slug          String     @unique
+  slug          String      @unique
   content       String
   categoryId    String?
   status        PostStatus
   authorId      String?
   publishedAt   DateTime?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
   excerpt       String?
   featuredImage String?
-  author        User?      @relation(fields: [authorId], references: [id])
-  category      Category?  @relation(fields: [categoryId], references: [id])
+  author        User?       @relation(fields: [authorId], references: [id])
+  category      Category?   @relation(fields: [categoryId], references: [id])
   embedding     Unsupported("vector(768)")?
+  chunks        PostChunk[]
 
   @@map("posts")
+}
+
+model PostChunk {
+  id        String                      @id @default(uuid())
+  postId    String
+  content   String
+  chunkIndex Int
+  embedding Unsupported("vector(768)")?
+  createdAt DateTime                    @default(now())
+  post      Post                        @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, chunkIndex])
+  @@map("post_chunks")
 }
 
 model MediaFile {

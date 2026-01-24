@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ScoreCalculationService } from '../score/score-calculation.service';
-import { FilterResult, AdmissionDecision } from './dto/filter-result.dto';
+import { FilterResult, AdmissionDecision, RejectionReason } from './dto/filter-result.dto';
 import { RankedApplication } from './dto/ranked-application.dto';
 import { Prisma, AdmissionStatus } from '@prisma/client';
 
@@ -36,7 +36,7 @@ export class VirtualFilterService {
     // Use transaction for atomicity
     const result = await this.prisma.$transaction(async (tx) => {
       // Step 1: Calculate scores for all applications
-      await this.calculateScores(sessionId, tx);
+      const eligibilityReasons = await this.calculateScores(sessionId, tx);
 
       // Step 2: Rank applications by score within each major
       const rankedApplications = await this.rankApplications(sessionId, tx);
@@ -45,6 +45,7 @@ export class VirtualFilterService {
       const decisions = await this.processPreferences(
         sessionId,
         rankedApplications,
+        eligibilityReasons,
         tx,
       );
 
@@ -95,11 +96,14 @@ export class VirtualFilterService {
    * Calculate scores for all applications in a session
    * @param sessionId - The admission session ID
    * @param tx - Prisma transaction client
+   * @returns Map of applicationId -> rejection reason (for ineligible apps)
    */
   async calculateScores(
     sessionId: string,
     tx: Prisma.TransactionClient,
-  ): Promise<void> {
+  ): Promise<Map<string, RejectionReason>> {
+    const rejectionReasons = new Map<string, RejectionReason>();
+
     // Get session with all quotas first to avoid redundant fetching
     const session = await tx.admissionSession.findUnique({
       where: { id: sessionId },
@@ -165,6 +169,13 @@ export class VirtualFilterService {
 
       const isEligible = isBasicEligible && isQuotaEligible;
 
+      // Track rejection reason
+      if (!isBasicEligible) {
+        rejectionReasons.set(application.id, 'not_eligible_basic');
+      } else if (!isQuotaEligible) {
+        rejectionReasons.set(application.id, 'not_eligible_quota');
+      }
+
       // Calculate score with conditions
       const calculatedScore = isEligible
         ? this.scoreCalculationService.calculateScore(
@@ -187,6 +198,8 @@ export class VirtualFilterService {
         },
       });
     }
+
+    return rejectionReasons;
   }
 
   /**
@@ -275,12 +288,14 @@ export class VirtualFilterService {
    * while ensuring they only take a spot in their highest possible priority major.
    * @param sessionId - The admission session ID
    * @param rankedApps - Array of ranked applications
+   * @param eligibilityReasons - Map of applicationId -> rejection reason for ineligible apps
    * @param tx - Prisma transaction client
-   * @returns Array of admission decisions
+   * @returns Array of admission decisions with detailed rejection reasons
    */
   async processPreferences(
     sessionId: string,
     rankedApps: RankedApplication[],
+    eligibilityReasons: Map<string, RejectionReason>,
     tx: Prisma.TransactionClient,
   ): Promise<AdmissionDecision[]> {
     // 1. Get quotas for this session
@@ -294,12 +309,23 @@ export class VirtualFilterService {
       quotaMap.set(key, quota.quota);
     }
 
-    // 2. Track rejection status for each application
-    // activeApps starts with all ranked applications
+    // 2. Get all applications (including ineligible ones) to return complete results
+    const allApplications = await tx.application.findMany({
+      where: { sessionId },
+      include: {
+        major: true,
+      },
+    });
+
+    // Create a map for quick lookup
+    const appMap = new Map(allApplications.map(app => [app.id, app]));
+
+    // 3. Track rejection status for each application
+    // activeApps starts with all ranked applications (eligible ones)
     let activeApps = rankedApps.map(app => ({ ...app, isRejected: false }));
     let changed = true;
 
-    // 3. Iterative Stable Matching (Gale-Shapley style)
+    // 4. Iterative Stable Matching (Gale-Shapley style)
     // In each round, students "propose" to their highest priority non-rejected application
     while (changed) {
       changed = false;
@@ -362,7 +388,7 @@ export class VirtualFilterService {
       }
     }
 
-    // 4. Final decisions based on stable state
+    // 5. Final decisions based on stable state
     const decisions: AdmissionDecision[] = [];
 
     // Create a map of a student's best non-rejected priority for quick lookup
@@ -376,28 +402,63 @@ export class VirtualFilterService {
       }
     }
 
-    // Final pass to collector decisions
-    for (const app of activeApps) {
-      const bestPriority = studentFinalBest.get(app.studentId);
-      const isActuallyBest = !app.isRejected && app.priority === bestPriority;
+    // 6. Process ALL applications (including ineligible ones)
+    for (const application of allApplications) {
+      const app = appMap.get(application.id);
+      if (!app) continue;
 
-      if (isActuallyBest) {
-        decisions.push({
-          applicationId: app.applicationId,
-          studentId: app.studentId,
-          majorId: app.majorId,
-          status: 'admitted',
-          admittedPreference: app.priority,
-        });
-      } else {
-        decisions.push({
-          applicationId: app.applicationId,
-          studentId: app.studentId,
-          majorId: app.majorId,
-          status: 'not_admitted',
-          admittedPreference: null,
-        });
+      // Check if this app was in the eligible/ranked list
+      const rankedApp = activeApps.find(a => a.applicationId === application.id);
+      
+      let status: 'admitted' | 'not_admitted' = 'not_admitted';
+      let rejectionReason: RejectionReason = null;
+      let admittedPreference: number | null = null;
+
+      // Case 1: Not eligible (not in ranked apps)
+      if (!rankedApp) {
+        status = 'not_admitted';
+        rejectionReason = eligibilityReasons.get(application.id) || 'not_eligible_basic';
+      } 
+      // Case 2: Eligible but rejected during matching
+      else if (rankedApp.isRejected) {
+        status = 'not_admitted';
+        const bestPriority = studentFinalBest.get(rankedApp.studentId);
+        
+        // If student has a better priority admitted, this is lower priority
+        if (bestPriority !== undefined && rankedApp.priority > bestPriority) {
+          rejectionReason = 'admitted_higher_priority';
+        } else {
+          // Otherwise, didn't make the quota cutoff
+          rejectionReason = 'below_quota_cutoff';
+        }
       }
+      // Case 3: Admitted
+      else {
+        const bestPriority = studentFinalBest.get(rankedApp.studentId);
+        if (bestPriority !== undefined && rankedApp.priority === bestPriority) {
+          status = 'admitted';
+          admittedPreference = rankedApp.priority;
+          rejectionReason = null;
+        } else {
+          // This shouldn't happen, but handle it
+          status = 'not_admitted';
+          rejectionReason = 'admitted_higher_priority';
+        }
+      }
+
+      decisions.push({
+        applicationId: application.id,
+        studentId: application.studentId,
+        majorId: application.majorId,
+        majorName: app.major.name,
+        admissionMethod: application.admissionMethod,
+        preferencePriority: application.preferencePriority,
+        calculatedScore: Number(application.calculatedScore) || 0,
+        rankInMajor: application.rankInMajor,
+        status,
+        rejectionReason,
+        admittedPreference,
+      });
     }
 
     return decisions;
@@ -423,5 +484,130 @@ export class VirtualFilterService {
         },
       });
     }
+  }
+
+  /**
+   * Get detailed filter results for a session
+   * @param sessionId - The admission session ID
+   * @param studentId - Optional student ID to filter results
+   * @returns Detailed admission decisions with rejection reasons
+   */
+  async getFilterResults(sessionId: string, studentId?: string) {
+    // Verify session exists
+    const session = await this.prisma.admissionSession.findUnique({
+      where: { id: sessionId },
+    });
+
+    if (!session) {
+      throw new NotFoundException(`Admission session ${sessionId} not found`);
+    }
+
+    // Build where clause
+    const where: any = { sessionId };
+    if (studentId) {
+      where.studentId = studentId;
+    }
+
+    // Get all applications with related data
+    const applications = await this.prisma.application.findMany({
+      where,
+      include: {
+        student: {
+          select: {
+            id: true,
+            fullName: true,
+            idCard: true,
+          },
+        },
+        major: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: [
+        { studentId: 'asc' },
+        { preferencePriority: 'asc' },
+      ],
+    });
+
+    // Group by student
+    const studentResults = new Map<string, any>();
+
+    for (const app of applications) {
+      if (!studentResults.has(app.studentId)) {
+        studentResults.set(app.studentId, {
+          studentId: app.studentId,
+          studentName: app.student.fullName,
+          idCard: app.student.idCard,
+          applications: [],
+        });
+      }
+
+      const studentData = studentResults.get(app.studentId);
+      
+      // Determine rejection reason based on status and score
+      let rejectionReason: RejectionReason = null;
+      
+      if (app.admissionStatus === AdmissionStatus.not_admitted) {
+        if (!app.calculatedScore || Number(app.calculatedScore) === 0) {
+          // Check if it's basic or quota eligibility issue
+          rejectionReason = 'not_eligible_basic';
+        } else if (app.rankInMajor === null) {
+          rejectionReason = 'not_eligible_quota';
+        } else {
+          // Has score and rank but not admitted - either below cutoff or admitted elsewhere
+          const admittedApp = applications.find(
+            a => a.studentId === app.studentId && 
+            a.admissionStatus === AdmissionStatus.admitted
+          );
+          
+          if (admittedApp && admittedApp.preferencePriority < app.preferencePriority) {
+            rejectionReason = 'admitted_higher_priority';
+          } else {
+            rejectionReason = 'below_quota_cutoff';
+          }
+        }
+      }
+
+      studentData.applications.push({
+        applicationId: app.id,
+        majorCode: app.major.code,
+        majorName: app.major.name,
+        admissionMethod: app.admissionMethod,
+        preferencePriority: app.preferencePriority,
+        calculatedScore: Number(app.calculatedScore) || 0,
+        rankInMajor: app.rankInMajor,
+        status: app.admissionStatus === AdmissionStatus.admitted ? 'admitted' : 'not_admitted',
+        rejectionReason,
+        rejectionReasonText: this.getRejectionReasonText(rejectionReason),
+      });
+    }
+
+    return {
+      sessionId,
+      totalStudents: studentResults.size,
+      students: Array.from(studentResults.values()),
+    };
+  }
+
+  /**
+   * Get human-readable rejection reason text in Vietnamese
+   * @param reason - Rejection reason code
+   * @returns Vietnamese text explanation
+   */
+  private getRejectionReasonText(reason: RejectionReason): string | null {
+    if (!reason) return null;
+
+    const reasonTexts: Record<string, string> = {
+      not_eligible_basic: 'Không đủ điều kiện cơ bản (thiếu môn thi hoặc có môn điểm 0)',
+      not_eligible_quota: 'Không đạt điều kiện chỉ tiêu (không đạt điểm sàn hoặc điểm tối thiểu từng môn)',
+      below_quota_cutoff: 'Điểm thấp hơn điểm chuẩn (hết chỉ tiêu)',
+      admitted_higher_priority: 'Đã trúng tuyển nguyện vọng ưu tiên cao hơn',
+    };
+
+    return reasonTexts[reason] || 'Không rõ lý do';
   }
 }

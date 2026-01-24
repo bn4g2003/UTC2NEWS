@@ -5,11 +5,12 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { StorageModule } from '../storage/storage.module';
 import { RBACModule } from '../rbac/rbac.module';
 import { SearchService } from './search.service';
+import { ChunkingService } from './chunking.service';
 
 @Module({
   imports: [PrismaModule, StorageModule, RBACModule],
   controllers: [CmsController],
-  providers: [CmsService, SearchService],
+  providers: [CmsService, SearchService, ChunkingService],
   exports: [CmsService, SearchService],
 })
 export class CmsModule { }

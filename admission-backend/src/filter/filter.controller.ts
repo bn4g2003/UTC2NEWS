@@ -1,12 +1,14 @@
 import {
   Controller,
   Post,
+  Get,
   Param,
   UseGuards,
   HttpCode,
   HttpStatus,
+  Query,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { VirtualFilterService } from './virtual-filter.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../rbac/guards/permissions.guard';
@@ -48,5 +50,30 @@ export class FilterController {
   @ApiResponse({ status: 404, description: 'Session not found' })
   async runFilter(@Param('id') sessionId: string): Promise<FilterResult> {
     return this.virtualFilterService.runFilter(sessionId);
+  }
+
+  /**
+   * Get detailed filter results for a session
+   * GET /sessions/:id/filter-results
+   */
+  @Get(':id/filter-results')
+  @RequirePermissions('filter:execute')
+  @ApiOperation({ 
+    summary: 'Get detailed filter results', 
+    description: 'Retrieve detailed admission decisions for all applications in a session, including rejection reasons for each preference.' 
+  })
+  @ApiParam({ name: 'id', description: 'Admission session ID' })
+  @ApiQuery({ name: 'studentId', required: false, description: 'Filter by specific student ID' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Filter results retrieved successfully'
+  })
+  @ApiResponse({ status: 403, description: 'Forbidden - requires filter:execute permission' })
+  @ApiResponse({ status: 404, description: 'Session not found' })
+  async getFilterResults(
+    @Param('id') sessionId: string,
+    @Query('studentId') studentId?: string,
+  ) {
+    return this.virtualFilterService.getFilterResults(sessionId, studentId);
   }
 }

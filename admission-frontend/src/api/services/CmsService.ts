@@ -114,6 +114,33 @@ export class CmsService {
         });
     }
     /**
+     * Search posts (Hybrid + Chunks)
+     * Advanced search combining Vector embeddings, chunking, and keyword matching
+     * @param q Search query
+     * @param limit Number of results (default: 5)
+     * @param hybrid Use hybrid search (default: true)
+     * @param chunks Use chunk-based search (default: true)
+     * @returns any Search results retrieved successfully
+     * @throws ApiError
+     */
+    public static searchPosts(
+        q: string,
+        limit?: number,
+        hybrid?: boolean,
+        chunks?: boolean,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/cms/posts/search',
+            query: {
+                'q': q,
+                'limit': limit,
+                'hybrid': hybrid,
+                'chunks': chunks,
+            },
+        });
+    }
+    /**
      * Create post
      * Create a new content post
      * @param requestBody

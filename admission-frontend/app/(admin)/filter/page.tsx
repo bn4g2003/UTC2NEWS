@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Button, Space, Select, Card, Alert, Spin, message, Table, Tag, Modal } from 'antd';
-import { PlayCircleOutlined, ReloadOutlined, SaveOutlined, EyeOutlined } from '@ant-design/icons';
+import { Button, Space, Select, Card, Alert, Spin, message, Table, Tag, Modal, Input, Row, Col, Tabs } from 'antd';
+import { PlayCircleOutlined, ReloadOutlined, SaveOutlined, EyeOutlined, DownloadOutlined, SearchOutlined, FilterOutlined } from '@ant-design/icons';
 import { FilterService } from '@/api/services/FilterService';
 import { ProgramsService } from '@/api/services/ProgramsService';
 import { StudentsService } from '@/api/services/StudentsService';
 import { getBlockCode } from '@/lib/block-code-mapper';
+import * as XLSX from 'xlsx';
 
 interface Session {
   id: string;
@@ -39,9 +40,22 @@ interface StudentApplication {
   majorCode: string;
   admissionMethod: string;
   calculatedScore: number;
-  rankInMajor: number;
+  rankInMajor: number | null;
   preferencePriority: number;
   admissionStatus: string;
+  rejectionReason?: string | null;
+  rejectionReasonText?: string | null;
+}
+
+interface DetailedFilterResult {
+  sessionId: string;
+  totalStudents: number;
+  students: {
+    studentId: string;
+    studentName: string;
+    idCard: string;
+    applications: StudentApplication[];
+  }[];
 }
 
 export default function FilterPage() {
@@ -52,9 +66,22 @@ export default function FilterPage() {
   const [saving, setSaving] = useState(false);
   const [filterResult, setFilterResult] = useState<FilterResult | null>(null);
   const [admittedStudents, setAdmittedStudents] = useState<StudentApplication[]>([]);
+  const [allApplications, setAllApplications] = useState<StudentApplication[]>([]);
+  const [detailedResults, setDetailedResults] = useState<DetailedFilterResult | null>(null);
   const [sessionQuotas, setSessionQuotas] = useState<any[]>([]);
   const [loadingQuotas, setLoadingQuotas] = useState(false);
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<'admitted' | 'not_admitted' | 'all'>('admitted');
+  
+  // Filter states
+  const [searchText, setSearchText] = useState('');
+  const [filterMajor, setFilterMajor] = useState<string>('');
+  const [filterStatus, setFilterStatus] = useState<string>('');
+  const [filterPreference, setFilterPreference] = useState<string>('');
+  const [filterMinScore, setFilterMinScore] = useState<string>('');
+  const [filterMaxScore, setFilterMaxScore] = useState<string>('');
+  const [filterAdmissionMethod, setFilterAdmissionMethod] = useState<string>('');
+  const [filterRejectionReason, setFilterRejectionReason] = useState<string>('');
+  const [majors, setMajors] = useState<any[]>([]);
 
   // Fetch session quotas
   const fetchSessionQuotas = useCallback(async (sessionId: string) => {
@@ -99,15 +126,62 @@ export default function FilterPage() {
   // Load sessions on mount
   useEffect(() => {
     fetchSessions();
+    fetchMajors();
   }, [fetchSessions]);
+
+  // Fetch majors for filter
+  const fetchMajors = async () => {
+    try {
+      const response = await ProgramsService.programControllerFindAllMajors();
+      setMajors(response.data || response || []);
+    } catch (err) {
+      console.error('Error fetching majors:', err);
+    }
+  };
 
   // Handle session selection
   const handleSessionChange = (sessionId: string) => {
     setSelectedSessionId(sessionId);
     setFilterResult(null);
     setAdmittedStudents([]);
+    setAllApplications([]);
+    setDetailedResults(null);
     if (sessionId) {
       fetchSessionQuotas(sessionId);
+    }
+  };
+
+  // Fetch detailed filter results (all applications with rejection reasons)
+  const fetchDetailedResults = async (sessionId: string) => {
+    try {
+      const data = await FilterService.filterControllerGetFilterResults(sessionId);
+      setDetailedResults(data);
+      
+      // Flatten all applications for table display
+      const allApps: StudentApplication[] = [];
+      data.students?.forEach((student: any) => {
+        student.applications?.forEach((app: any) => {
+          allApps.push({
+            id: app.applicationId,
+            idCard: student.idCard,
+            fullName: student.studentName,
+            majorName: app.majorName,
+            majorCode: app.majorCode,
+            admissionMethod: app.admissionMethod,
+            calculatedScore: app.calculatedScore,
+            rankInMajor: app.rankInMajor,
+            preferencePriority: app.preferencePriority,
+            admissionStatus: app.status,
+            rejectionReason: app.rejectionReason,
+            rejectionReasonText: app.rejectionReasonText,
+          });
+        });
+      });
+      
+      setAllApplications(allApps);
+    } catch (err) {
+      console.error('Error fetching detailed results:', err);
+      message.error('Không thể tải kết quả chi tiết');
     }
   };
 
@@ -154,10 +228,15 @@ export default function FilterPage() {
     setRunning(true);
     setFilterResult(null);
     setAdmittedStudents([]);
+    setAllApplications([]);
+    setDetailedResults(null);
     try {
       const result = await FilterService.filterControllerRunFilter(selectedSessionId);
 
       setFilterResult(result as FilterResult);
+
+      // Fetch detailed results with rejection reasons
+      await fetchDetailedResults(selectedSessionId);
 
       // Fetch admitted students details
       await fetchAdmittedStudents(selectedSessionId);
@@ -213,6 +292,127 @@ export default function FilterPage() {
   const handleReset = () => {
     setFilterResult(null);
     setAdmittedStudents([]);
+    setAllApplications([]);
+    setDetailedResults(null);
+    setSearchText('');
+    setFilterMajor('');
+    setFilterStatus('');
+    setFilterPreference('');
+    setFilterMinScore('');
+    setFilterMaxScore('');
+    setFilterAdmissionMethod('');
+    setFilterRejectionReason('');
+    setActiveTab('admitted');
+  };
+
+  // Get data based on active tab
+  const getTabData = () => {
+    switch (activeTab) {
+      case 'admitted':
+        return allApplications.filter(app => app.admissionStatus === 'admitted');
+      case 'not_admitted':
+        return allApplications.filter(app => app.admissionStatus === 'not_admitted');
+      case 'all':
+      default:
+        return allApplications;
+    }
+  };
+
+  // Filter applications based on search and filters
+  const getFilteredApplications = () => {
+    let filtered = getTabData();
+
+    // Search by name or ID card
+    if (searchText) {
+      const search = searchText.toLowerCase();
+      filtered = filtered.filter(app => 
+        app.fullName.toLowerCase().includes(search) ||
+        app.idCard.toLowerCase().includes(search)
+      );
+    }
+
+    // Filter by major
+    if (filterMajor) {
+      filtered = filtered.filter(app => app.majorCode === filterMajor);
+    }
+
+    // Filter by preference
+    if (filterPreference) {
+      filtered = filtered.filter(app => app.preferencePriority === parseInt(filterPreference));
+    }
+
+    // Filter by admission method
+    if (filterAdmissionMethod) {
+      filtered = filtered.filter(app => app.admissionMethod.includes(filterAdmissionMethod));
+    }
+
+    // Filter by rejection reason (only for not admitted)
+    if (filterRejectionReason && activeTab !== 'admitted') {
+      filtered = filtered.filter(app => app.rejectionReason === filterRejectionReason);
+    }
+
+    // Filter by score range
+    if (filterMinScore) {
+      filtered = filtered.filter(app => app.calculatedScore >= parseFloat(filterMinScore));
+    }
+    if (filterMaxScore) {
+      filtered = filtered.filter(app => app.calculatedScore <= parseFloat(filterMaxScore));
+    }
+
+    return filtered;
+  };
+
+  // Export to Excel
+  const handleExportExcel = () => {
+    const dataToExport = getFilteredApplications();
+    
+    if (dataToExport.length === 0) {
+      message.warning('Không có dữ liệu để xuất');
+      return;
+    }
+
+    // Prepare data for Excel
+    const excelData = dataToExport.map((app, index) => ({
+      'STT': index + 1,
+      'Số CCCD': app.idCard,
+      'Họ tên': app.fullName,
+      'Mã ngành': app.majorCode,
+      'Tên ngành': app.majorName,
+      'Nguyện vọng': app.preferencePriority,
+      'Khối/Tổ hợp': app.admissionMethod,
+      'Điểm xét tuyển': app.calculatedScore?.toFixed(2) || '0',
+      'Xếp hạng': app.rankInMajor || '',
+      'Trạng thái': app.admissionStatus === 'admitted' ? 'Trúng tuyển' : 'Không đậu',
+      'Lý do': app.rejectionReasonText || '',
+    }));
+
+    // Create workbook and worksheet
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Kết quả lọc');
+
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 5 },  // STT
+      { wch: 15 }, // CCCD
+      { wch: 25 }, // Họ tên
+      { wch: 10 }, // Mã ngành
+      { wch: 35 }, // Tên ngành
+      { wch: 12 }, // Nguyện vọng
+      { wch: 12 }, // Khối
+      { wch: 15 }, // Điểm
+      { wch: 10 }, // Xếp hạng
+      { wch: 15 }, // Trạng thái
+      { wch: 50 }, // Lý do
+    ];
+
+    // Generate filename with timestamp
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+    const filename = `ket-qua-loc-ao_${selectedSession?.name || 'session'}_${timestamp}.xlsx`;
+
+    // Save file
+    XLSX.writeFile(wb, filename);
+    message.success('Đã xuất file Excel thành công!');
   };
 
   // Get selected session details
@@ -239,7 +439,7 @@ export default function FilterPage() {
       width: 200,
     },
     {
-      title: 'Ngành trúng tuyển',
+      title: 'Ngành',
       key: 'major',
       render: (record: StudentApplication) => (
         <div>
@@ -291,7 +491,33 @@ export default function FilterPage() {
       dataIndex: 'rankInMajor',
       key: 'rankInMajor',
       width: 100,
-      render: (rank: number) => <Tag color="green">#{rank}</Tag>,
+      render: (rank: number | null) => rank ? <Tag color="green">#{rank}</Tag> : <span style={{ color: '#999' }}>-</span>,
+    },
+  ];
+
+  // Table columns for all applications (including rejection reasons)
+  const allApplicationsColumns = [
+    ...columns,
+    {
+      title: 'Trạng thái',
+      dataIndex: 'admissionStatus',
+      key: 'admissionStatus',
+      width: 150,
+      render: (status: string, record: StudentApplication) => {
+        if (status === 'admitted') {
+          return <Tag color="success">Trúng tuyển</Tag>;
+        }
+        return (
+          <div>
+            <Tag color="error">Không đậu</Tag>
+            {record.rejectionReasonText && (
+              <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
+                {record.rejectionReasonText}
+              </div>
+            )}
+          </div>
+        );
+      },
     },
   ];
 
@@ -337,117 +563,18 @@ export default function FilterPage() {
           </div>
 
           {selectedSession && (
-            <div className="space-y-4">
-              <Alert
-                message="Thông tin đợt tuyển sinh"
-                description={
-                  <div className="grid grid-cols-3 gap-4">
-                    <div><strong>Tên:</strong> {selectedSession.name}</div>
-                    <div><strong>Năm:</strong> {selectedSession.year}</div>
-                    <div><strong>Trạng thái:</strong> <Tag color="green">{selectedSession.status}</Tag></div>
-                  </div>
-                }
-                type="info"
-                showIcon
-              />
-
-              <div className="mt-4">
-                <h3 className="text-lg font-medium mb-3">Chỉ tiêu và Điều kiện xét tuyển</h3>
-                <Table
-                  size="small"
-                  dataSource={sessionQuotas}
-                  rowKey="id"
-                  loading={loadingQuotas}
-                  pagination={false}
-                  columns={[
-                    {
-                      title: 'Ngành',
-                      key: 'major',
-                      render: (quota) => (
-                        <div>
-                          <div className="font-medium">{quota.major?.name}</div>
-                          <div className="text-xs text-gray-500">{quota.major?.code}</div>
-                        </div>
-                      )
-                    },
-                    {
-                      title: 'Phương thức',
-                      dataIndex: 'admissionMethod',
-                      key: 'admissionMethod',
-                      render: (method) => {
-                        const methodLabels: Record<string, string> = {
-                          entrance_exam: 'Thi đầu vào',
-                          high_school_transcript: 'Xét học bạ',
-                          direct_admission: 'Xét tuyển thẳng',
-                        };
-                        return <Tag color="blue" variant="outlined">{methodLabels[method] || method}</Tag>;
-                      }
-                    },
-                    {
-                      title: 'Khối/Tổ hợp',
-                      key: 'subjectCombinations',
-                      render: (quota) => {
-                        const cond = quota.conditions;
-                        if (!cond?.subjectCombinations || cond.subjectCombinations.length === 0) {
-                          return <span className="text-gray-400 italic">Chưa cấu hình</span>;
-                        }
-
-                        return (
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                            {cond.subjectCombinations.map((comb: any, idx: number) => {
-                              const blockCode = getBlockCode(comb);
-                              return (
-                                <Tag key={idx} color="cyan">
-                                  {blockCode}
-                                </Tag>
-                              );
-                            })}
-                          </div>
-                        );
-                      }
-                    },
-                    {
-                      title: 'Chỉ tiêu',
-                      dataIndex: 'quota',
-                      key: 'quota',
-                      align: 'center',
-                    },
-                    {
-                      title: 'Điều kiện',
-                      key: 'conditions',
-                      render: (quota) => {
-                        const cond = quota.conditions;
-                        if (!cond) return <span className="text-gray-400 italic">Không có</span>;
-                        return (
-                          <div className="text-xs">
-                            {cond.minTotalScore && <div>Điểm sàn: <Tag color="orange">≥ {cond.minTotalScore}</Tag></div>}
-                            {cond.minSubjectScores && (
-                              <div className="mt-1">
-                                Môn tối thiểu: {Object.entries(cond.minSubjectScores).map(([sub, score]: [string, any]) => (
-                                  <Tag key={sub} className="mr-1 mb-1">{sub}: {score}</Tag>
-                                ))}
-                              </div>
-                            )}
-                            {cond.subjectCombinations && (
-                              <div className="mt-1">
-                                Tổ hợp: {cond.subjectCombinations.map((comb: any, idx: number) => (
-                                  <Tag key={idx} color="cyan" className="mr-1 mb-1">
-                                    {Array.isArray(comb) ? comb.join('-') : comb}
-                                  </Tag>
-                                ))}
-                              </div>
-                            )}
-                            {cond.priorityBonus?.enabled && (
-                              <div className="mt-1 text-green-600">Cộng ưu tiên: tối đa {cond.priorityBonus.maxBonus}</div>
-                            )}
-                          </div>
-                        )
-                      }
-                    }
-                  ]}
-                />
-              </div>
-            </div>
+            <Alert
+              message="Thông tin đợt tuyển sinh"
+              description={
+                <div className="grid grid-cols-3 gap-4">
+                  <div><strong>Tên:</strong> {selectedSession.name}</div>
+                  <div><strong>Năm:</strong> {selectedSession.year}</div>
+                  <div><strong>Trạng thái:</strong> <Tag color="green">{selectedSession.status}</Tag></div>
+                </div>
+              }
+              type="info"
+              showIcon
+            />
           )}
 
           <div>
@@ -465,15 +592,6 @@ export default function FilterPage() {
 
               {filterResult && (
                 <>
-                  <Button
-                    type="default"
-                    icon={<EyeOutlined />}
-                    onClick={() => setShowDetailsModal(true)}
-                    size="large"
-                  >
-                    Xem chi tiết
-                  </Button>
-
                   <Button
                     icon={<ReloadOutlined />}
                     onClick={handleReset}
@@ -564,21 +682,197 @@ export default function FilterPage() {
               </Card>
             </div>
 
-            {/* Admitted Students Table */}
-            <div style={{ marginTop: '16px' }}>
-              <h3 style={{ marginBottom: '16px' }}>Danh sách thí sinh trúng tuyển ({admittedStudents.length})</h3>
-              <Table
-                columns={columns}
-                dataSource={admittedStudents}
-                rowKey="id"
-                pagination={{
-                  pageSize: 10,
-                  showSizeChanger: true,
-                  showTotal: (total) => `Tổng ${total} thí sinh`,
-                }}
-                scroll={{ x: 1000 }}
-              />
-            </div>
+            {/* Filter and Export Section */}
+            <Card size="small" style={{ marginBottom: '16px' }}>
+              <Row gutter={[16, 16]}>
+                <Col xs={24} sm={12} md={6}>
+                  <Input
+                    placeholder="Tìm theo tên hoặc CCCD"
+                    prefix={<SearchOutlined />}
+                    value={searchText}
+                    onChange={(e) => setSearchText(e.target.value)}
+                    allowClear
+                  />
+                </Col>
+                <Col xs={12} sm={8} md={5}>
+                  <Select
+                    style={{ width: '100%' }}
+                    placeholder="Chọn ngành"
+                    value={filterMajor}
+                    onChange={setFilterMajor}
+                    allowClear
+                    showSearch
+                    optionFilterProp="children"
+                  >
+                    {majors.map((major) => (
+                      <Select.Option key={major.id} value={major.code}>
+                        {major.code} - {major.name}
+                      </Select.Option>
+                    ))}
+                  </Select>
+                </Col>
+                <Col xs={12} sm={8} md={4}>
+                  <Select
+                    style={{ width: '100%' }}
+                    placeholder="Nguyện vọng"
+                    value={filterPreference}
+                    onChange={setFilterPreference}
+                    allowClear
+                  >
+                    {[1, 2, 3, 4, 5].map((pref) => (
+                      <Select.Option key={pref} value={pref.toString()}>
+                        NV{pref}
+                      </Select.Option>
+                    ))}
+                  </Select>
+                </Col>
+                <Col xs={12} sm={8} md={4}>
+                  <Select
+                    style={{ width: '100%' }}
+                    placeholder="Phương thức"
+                    value={filterAdmissionMethod}
+                    onChange={setFilterAdmissionMethod}
+                    allowClear
+                  >
+                    <Select.Option value="A00">Khối A00</Select.Option>
+                    <Select.Option value="A01">Khối A01</Select.Option>
+                    <Select.Option value="B00">Khối B00</Select.Option>
+                    <Select.Option value="C00">Khối C00</Select.Option>
+                    <Select.Option value="D01">Khối D01</Select.Option>
+                    <Select.Option value="D07">Khối D07</Select.Option>
+                  </Select>
+                </Col>
+                {activeTab !== 'admitted' && (
+                  <Col xs={12} sm={8} md={5}>
+                    <Select
+                      style={{ width: '100%' }}
+                      placeholder="Lý do loại"
+                      value={filterRejectionReason}
+                      onChange={setFilterRejectionReason}
+                      allowClear
+                    >
+                      <Select.Option value="not_eligible_basic">Không đủ điều kiện cơ bản</Select.Option>
+                      <Select.Option value="not_eligible_quota">Không đạt điều kiện chỉ tiêu</Select.Option>
+                      <Select.Option value="below_quota_cutoff">Hết chỉ tiêu</Select.Option>
+                      <Select.Option value="admitted_higher_priority">Đậu NV cao hơn</Select.Option>
+                    </Select>
+                  </Col>
+                )}
+                <Col xs={8} sm={6} md={3}>
+                  <Input
+                    placeholder="Điểm từ"
+                    type="number"
+                    step="0.1"
+                    value={filterMinScore}
+                    onChange={(e) => setFilterMinScore(e.target.value)}
+                    allowClear
+                  />
+                </Col>
+                <Col xs={8} sm={6} md={3}>
+                  <Input
+                    placeholder="Điểm đến"
+                    type="number"
+                    step="0.1"
+                    value={filterMaxScore}
+                    onChange={(e) => setFilterMaxScore(e.target.value)}
+                    allowClear
+                  />
+                </Col>
+                <Col xs={8} sm={6} md={activeTab !== 'admitted' ? 4 : 5}>
+                  <Button
+                    type="primary"
+                    icon={<DownloadOutlined />}
+                    onClick={handleExportExcel}
+                    block
+                  >
+                    Xuất Excel
+                  </Button>
+                </Col>
+              </Row>
+            </Card>
+
+            {/* Results Tabs */}
+            <Tabs
+              activeKey={activeTab}
+              onChange={(key) => setActiveTab(key as any)}
+              items={[
+                {
+                  key: 'admitted',
+                  label: (
+                    <span>
+                      <Tag color="success">Trúng tuyển</Tag>
+                      <span style={{ marginLeft: 8 }}>
+                        ({allApplications.filter(a => a.admissionStatus === 'admitted').length})
+                      </span>
+                    </span>
+                  ),
+                  children: (
+                    <Table
+                      columns={columns}
+                      dataSource={getFilteredApplications()}
+                      rowKey="id"
+                      pagination={{
+                        pageSize: 20,
+                        showSizeChanger: true,
+                        showTotal: (total) => `Tổng ${total} thí sinh`,
+                      }}
+                      scroll={{ x: 1000 }}
+                    />
+                  ),
+                },
+                {
+                  key: 'not_admitted',
+                  label: (
+                    <span>
+                      <Tag color="error">Không trúng tuyển</Tag>
+                      <span style={{ marginLeft: 8 }}>
+                        ({allApplications.filter(a => a.admissionStatus === 'not_admitted').length})
+                      </span>
+                    </span>
+                  ),
+                  children: (
+                    <Table
+                      columns={allApplicationsColumns}
+                      dataSource={getFilteredApplications()}
+                      rowKey="id"
+                      pagination={{
+                        pageSize: 20,
+                        showSizeChanger: true,
+                        showTotal: (total) => `Tổng ${total} nguyện vọng`,
+                      }}
+                      scroll={{ x: 1200 }}
+                    />
+                  ),
+                },
+                {
+                  key: 'all',
+                  label: (
+                    <span>
+                      <Tag color="default">Tất cả</Tag>
+                      <span style={{ marginLeft: 8 }}>
+                        ({allApplications.length})
+                      </span>
+                    </span>
+                  ),
+                  children: (
+                    <Table
+                      columns={allApplicationsColumns}
+                      dataSource={getFilteredApplications()}
+                      rowKey="id"
+                      pagination={{
+                        pageSize: 20,
+                        showSizeChanger: true,
+                        showTotal: (total) => `Tổng ${total} nguyện vọng`,
+                      }}
+                      scroll={{ x: 1200 }}
+                      rowClassName={(record) => 
+                        record.admissionStatus === 'admitted' ? 'bg-green-50' : ''
+                      }
+                    />
+                  ),
+                },
+              ]}
+            />
           </Space>
         </Card>
       )}
@@ -604,37 +898,6 @@ export default function FilterPage() {
           />
         </Space>
       </Card>
-
-      {/* Details Modal */}
-      <Modal
-        title="Chi tiết kết quả lọc ảo"
-        open={showDetailsModal}
-        onCancel={() => setShowDetailsModal(false)}
-        footer={null}
-        width={1200}
-      >
-        {filterResult && (
-          <Space orientation="vertical" style={{ width: '100%' }} size="large">
-            <div>
-              <h4>Thống kê tổng quan</h4>
-              <p>Tổng số thí sinh: {filterResult.totalStudents}</p>
-              <p>Số thí sinh trúng tuyển: {filterResult.admittedCount}</p>
-              <p>Thời gian xử lý: {filterResult.executionTime}ms</p>
-            </div>
-
-            <div>
-              <h4>Danh sách trúng tuyển</h4>
-              <Table
-                columns={columns}
-                dataSource={admittedStudents}
-                rowKey="id"
-                pagination={{ pageSize: 5 }}
-                scroll={{ x: 1000 }}
-              />
-            </div>
-          </Space>
-        )}
-      </Modal>
     </div>
   );
 }

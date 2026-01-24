@@ -89,7 +89,20 @@ export class CmsService {
   }
 
   // Post CRUD methods
-  async searchPosts(query: string, limit = 5) {
+  async searchPosts(query: string, limit = 5, useHybrid = true, useChunks = true) {
+    // Sử dụng hybrid search với chunks mặc định để có kết quả tốt nhất
+    if (useHybrid && useChunks) {
+      return await this.searchService.hybridSearchWithChunks(query, limit);
+    }
+    
+    if (useChunks) {
+      return await this.searchService.searchWithChunks(query, limit);
+    }
+    
+    if (useHybrid) {
+      return await this.searchService.hybridSearch(query, limit);
+    }
+    
     return await this.searchService.search(query, limit);
   }
 
@@ -124,7 +137,7 @@ export class CmsService {
 
       // Index post for vector search (don't fail creation if indexing fails)
       try {
-        await this.searchService.indexPost(post.id, post.title, post.content);
+        await this.searchService.indexPostWithChunks(post.id, post.title, post.content);
       } catch (e) {
         this.logger.warn(`Failed to index post ${post.id}: ${e.message}`);
       }
@@ -211,7 +224,7 @@ export class CmsService {
       // Update vector index
       if (data.title || data.content) {
         try {
-          await this.searchService.indexPost(post.id, post.title, post.content);
+          await this.searchService.indexPostWithChunks(post.id, post.title, post.content);
         } catch (e) {
           this.logger.warn(`Failed to update index for post ${post.id}: ${e.message}`);
         }

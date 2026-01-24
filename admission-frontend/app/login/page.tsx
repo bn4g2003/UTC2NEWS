@@ -69,11 +69,22 @@ function LoginForm() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 px-4">
       <Card className="w-full max-w-md shadow-lg">
         <div className="text-center mb-6">
+          <div className="flex justify-center mb-4">
+            <img 
+              src="/logo.png" 
+              alt="UTC2 Logo" 
+              style={{ 
+                height: 80,
+                width: 'auto',
+                objectFit: 'contain'
+              }} 
+            />
+          </div>
           <Title level={2} className="mb-2">
-            Hệ thống Quản lý Tuyển sinh
+            Trường Đại học Giao thông Vận tải TP.HCM
           </Title>
-          <Text type="secondary">
-            Đăng nhập để tiếp tục
+          <Text type="secondary" style={{ fontSize: 16 }}>
+            Hệ thống Quản lý Tuyển sinh
           </Text>
         </div>
 
@@ -160,7 +171,7 @@ function LoginForm() {
 
         <div className="mt-4 text-center">
           <Text type="secondary" className="text-sm">
-            Hệ thống Quản lý Tuyển sinh v1.0
+            © 2026 Trường Đại học Giao thông Vận tải TP.HCM
           </Text>
         </div>
       </Card>

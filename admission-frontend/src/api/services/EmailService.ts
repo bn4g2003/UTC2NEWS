@@ -50,4 +50,31 @@ export class EmailService {
             },
         });
     }
+    /**
+     * Get recipient count for email
+     * Get the count of students who will receive emails based on filters
+     * @param id Admission session ID
+     * @returns any Recipient count retrieved successfully
+     * @throws ApiError
+     */
+    public static emailControllerGetRecipientCount(
+        id: string,
+    ): CancelablePromise<{
+        count: number;
+        admitted: number;
+        notAdmitted: number;
+        sessionId: string;
+    }> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/email/sessions/{id}/recipient-count',
+            path: {
+                'id': id,
+            },
+            errors: {
+                403: `Forbidden - requires emails:read permission`,
+                404: `Session not found`,
+            },
+        });
+    }
 }

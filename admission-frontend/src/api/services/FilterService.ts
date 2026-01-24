@@ -28,4 +28,31 @@ export class FilterService {
             },
         });
     }
+    /**
+     * Get detailed filter results
+     * Retrieve detailed admission decisions for all applications in a session, including rejection reasons for each preference.
+     * @param id Admission session ID
+     * @param studentId Filter by specific student ID
+     * @returns any Filter results retrieved successfully
+     * @throws ApiError
+     */
+    public static filterControllerGetFilterResults(
+        id: string,
+        studentId?: string,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/sessions/{id}/filter-results',
+            path: {
+                'id': id,
+            },
+            query: {
+                'studentId': studentId,
+            },
+            errors: {
+                403: `Forbidden - requires filter:execute permission`,
+                404: `Session not found`,
+            },
+        });
+    }
 }

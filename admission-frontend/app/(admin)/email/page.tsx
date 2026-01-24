@@ -42,6 +42,8 @@ export default function EmailPage() {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [recipientCount, setRecipientCount] = useState<number>(0);
+  const [admittedCount, setAdmittedCount] = useState<number>(0);
+  const [notAdmittedCount, setNotAdmittedCount] = useState<number>(0);
   const [showPreview, setShowPreview] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -64,16 +66,16 @@ export default function EmailPage() {
       const response = await ProgramsService.programControllerFindAllSessions();
       const sessionsList = response.data || response || [];
       
-      // Filter to show only closed sessions (results are finalized)
-      const closedSessions = sessionsList.filter(
-        (session: Session) => session.status === 'closed'
+      // Filter to show only active or closed sessions (results are available)
+      const availableSessions = sessionsList.filter(
+        (session: Session) => session.status === 'active' || session.status === 'closed'
       );
       
-      setSessions(closedSessions);
+      setSessions(availableSessions);
       
       // Auto-select first session if available
-      if (closedSessions.length > 0 && !selectedSessionId) {
-        setSelectedSessionId(closedSessions[0].id);
+      if (availableSessions.length > 0 && !selectedSessionId) {
+        setSelectedSessionId(availableSessions[0].id);
       }
     } catch (err) {
       message.error('Failed to load sessions');
@@ -101,27 +103,20 @@ export default function EmailPage() {
     }
   }, []);
 
-  // Mock function to fetch recipient count (Requirement 15.2)
-  // In a real implementation, this would call an API endpoint
+  // Fetch recipient count from API
   const fetchRecipientCount = useCallback(async (sessionId: string, group: RecipientGroup, programId?: string) => {
     try {
-      // Mock data - in real implementation, call API to get count based on filters
-      let mockCount = 0;
-      
-      if (group === 'all') {
-        mockCount = Math.floor(Math.random() * 100) + 50;
-      } else if (group === 'accepted') {
-        mockCount = Math.floor(Math.random() * 80) + 30;
-      } else if (group === 'rejected') {
-        mockCount = Math.floor(Math.random() * 30) + 10;
-      } else if (group === 'program' && programId) {
-        mockCount = Math.floor(Math.random() * 40) + 10;
-      }
-      
-      setRecipientCount(mockCount);
+      // Call API to get actual count from database
+      const response = await EmailService.emailControllerGetRecipientCount(sessionId);
+      setRecipientCount(response.count);
+      setAdmittedCount(response.admitted);
+      setNotAdmittedCount(response.notAdmitted);
     } catch (err) {
       console.error('Error fetching recipient count:', err);
+      message.error('Không thể lấy số lượng người nhận');
       setRecipientCount(0);
+      setAdmittedCount(0);
+      setNotAdmittedCount(0);
     }
   }, []);
 
@@ -169,20 +164,20 @@ export default function EmailPage() {
   const EmailHistoryModal = () => {
     const columns: ColumnsType<EmailHistory> = [
       {
-        title: 'Session',
+        title: 'Đợt tuyển sinh',
         dataIndex: 'sessionName',
         key: 'sessionName',
         width: 200,
       },
       {
-        title: 'Recipients',
+        title: 'Người nhận',
         dataIndex: 'recipientCount',
         key: 'recipientCount',
         width: 120,
         align: 'center',
       },
       {
-        title: 'Sent',
+        title: 'Đã gửi',
         dataIndex: 'sentCount',
         key: 'sentCount',
         width: 100,
@@ -192,7 +187,7 @@ export default function EmailPage() {
         ),
       },
       {
-        title: 'Failed',
+        title: 'Thất bại',
         dataIndex: 'failedCount',
         key: 'failedCount',
         width: 100,
@@ -202,7 +197,7 @@ export default function EmailPage() {
         ),
       },
       {
-        title: 'Status',
+        title: 'Trạng thái',
         dataIndex: 'status',
         key: 'status',
         width: 120,
@@ -215,10 +210,10 @@ export default function EmailPage() {
             failed: 'error',
           };
           const textMap = {
-            queued: 'Queued',
-            sending: 'Sending',
-            completed: 'Completed',
-            failed: 'Failed',
+            queued: 'Đang chờ',
+            sending: 'Đang gửi',
+            completed: 'Hoàn thành',
+            failed: 'Thất bại',
           };
           return (
             <Tag color={colorMap[status as keyof typeof colorMap]}>
@@ -228,7 +223,7 @@ export default function EmailPage() {
         },
       },
       {
-        title: 'Sent At',
+        title: 'Thời gian gửi',
         dataIndex: 'sentAt',
         key: 'sentAt',
         width: 180,
@@ -238,15 +233,15 @@ export default function EmailPage() {
 
     return (
       <Modal
-        title="Email Sending History"
+        title="Lịch sử gửi Email"
         open={showHistory}
         onCancel={() => setShowHistory(false)}
         footer={[
           <Button key="refresh" icon={<ReloadOutlined />} onClick={fetchEmailHistory}>
-            Refresh
+            Làm mới
           </Button>,
           <Button key="close" type="primary" onClick={() => setShowHistory(false)}>
-            Close
+            Đóng
           </Button>,
         ]}
         width={900}
@@ -258,7 +253,7 @@ export default function EmailPage() {
           pagination={{
             pageSize: 10,
             showSizeChanger: true,
-            showTotal: (total) => `Total ${total} records`,
+            showTotal: (total) => `Tổng ${total} bản ghi`,
           }}
         />
       </Modal>
@@ -292,16 +287,16 @@ export default function EmailPage() {
   // Get recipient group description (Requirement 15.2)
   const getRecipientDescription = () => {
     if (recipientGroup === 'all') {
-      return 'All students with admission results';
+      return 'Tất cả sinh viên có kết quả tuyển sinh';
     } else if (recipientGroup === 'accepted') {
-      return 'Only accepted students';
+      return 'Chỉ sinh viên trúng tuyển';
     } else if (recipientGroup === 'rejected') {
-      return 'Only rejected students';
+      return 'Chỉ sinh viên không đậu';
     } else if (recipientGroup === 'program' && selectedProgramId) {
       const program = programs.find(p => p.id === selectedProgramId);
-      return `Students in ${program?.name || 'selected program'}`;
+      return `Sinh viên ngành ${program?.name || 'đã chọn'}`;
     }
-    return 'Select recipient criteria';
+    return 'Chọn tiêu chí người nhận';
   };
 
   // Get selected session details
@@ -314,133 +309,172 @@ export default function EmailPage() {
       programName: 'Công nghệ thông tin',
       programCode: 'CNTT',
       score: 27.5,
-      ranking: 1,
+      preference: 1,
+      admissionMethod: 'high_school_transcript',
       status: recipientGroup === 'rejected' ? 'rejected' : 'accepted',
     };
 
     return (
       <Modal
-        title="Email Preview"
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <EyeOutlined style={{ fontSize: '20px', color: '#0066cc' }} />
+            <span>Xem trước Email</span>
+          </div>
+        }
         open={showPreview}
         onCancel={() => setShowPreview(false)}
         footer={[
-          <Button key="close" onClick={() => setShowPreview(false)}>
-            Close
+          <Button key="close" type="primary" onClick={() => setShowPreview(false)}>
+            Đóng
           </Button>,
         ]}
-        width={700}
+        width={800}
+        style={{ top: 20 }}
       >
+        <Alert
+          message="Đây là bản xem trước"
+          description="Email thực tế sẽ được cá nhân hóa với thông tin của từng sinh viên."
+          type="info"
+          showIcon
+          style={{ marginBottom: '20px' }}
+        />
+        
         <div style={{ 
-          border: '1px solid #d9d9d9', 
-          borderRadius: '4px', 
-          padding: '24px',
-          backgroundColor: '#fafafa'
+          border: '2px solid #e0e0e0', 
+          borderRadius: '8px', 
+          overflow: 'hidden',
+          backgroundColor: '#f5f5f5',
+          maxHeight: '600px',
+          overflowY: 'auto'
         }}>
           {/* Email Header */}
           <div style={{ 
-            borderBottom: '2px solid #1890ff', 
-            paddingBottom: '16px',
-            marginBottom: '24px'
+            background: 'linear-gradient(135deg, #0066cc 0%, #004999 100%)',
+            color: 'white',
+            padding: '30px 20px',
+            textAlign: 'center'
           }}>
-            <h2 style={{ margin: 0, color: '#1890ff' }}>
-              Admission Result Notification
+            <h2 style={{ margin: 0, fontSize: '26px', fontWeight: 700, letterSpacing: '1px', color: 'white' }}>
+              🎓 THÔNG BÁO KẾT QUẢ XÉT TUYỂN
             </h2>
-            <p style={{ margin: '8px 0 0 0', color: '#666' }}>
-              {selectedSession?.name} ({selectedSession?.year})
-            </p>
           </div>
 
           {/* Email Body */}
-          <div style={{ lineHeight: '1.8' }}>
-            <p>Dear <strong>{previewData.studentName}</strong>,</p>
+          <div style={{ padding: '40px 30px', backgroundColor: '#ffffff' }}>
+            <div style={{ marginBottom: '20px', fontSize: '16px' }}>
+              <p style={{ margin: '5px 0' }}><strong>Kính gửi:</strong> {previewData.studentName}</p>
+            </div>
             
-            <p>
-              We are pleased to inform you about your admission result for the{' '}
-              <strong>{selectedSession?.name}</strong> admission session.
+            <p style={{ margin: '20px 0', fontSize: '15px', lineHeight: '1.8' }}>
+              Trường Đại học xin trân trọng thông báo kết quả xét tuyển của bạn. 
+              Chúng tôi rất vui mừng được chào đón bạn gia nhập cộng đồng sinh viên của chúng tôi.
             </p>
 
-            {previewData.status === 'accepted' ? (
+            {previewData.status === 'accepted' && (
               <>
                 <div style={{ 
-                  backgroundColor: '#f6ffed', 
-                  border: '1px solid #b7eb8f',
-                  borderRadius: '4px',
-                  padding: '16px',
-                  margin: '16px 0'
+                  background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)',
+                  borderLeft: '5px solid #4caf50',
+                  padding: '25px',
+                  margin: '25px 0',
+                  borderRadius: '6px',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
                 }}>
-                  <h3 style={{ margin: '0 0 8px 0', color: '#52c41a' }}>
-                    🎉 Congratulations! You have been ACCEPTED
+                  <h3 style={{ margin: '0 0 12px 0', color: '#2e7d32', fontSize: '22px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '28px' }}>🎉</span>
+                    <span>CHÚC MỪNG!</span>
                   </h3>
-                  <p style={{ margin: 0 }}>
-                    <strong>Program:</strong> {previewData.programName} ({previewData.programCode})<br />
-                    <strong>Total Score:</strong> {previewData.score}<br />
-                    <strong>Ranking:</strong> #{previewData.ranking}
+                  <p style={{ margin: '5px 0', fontSize: '16px', fontWeight: 600, color: '#1b5e20' }}>
+                    Bạn đã TRÚNG TUYỂN vào chương trình đào tạo của trường chúng tôi!
                   </p>
                 </div>
 
-                <p><strong>Next Steps:</strong></p>
-                <ol>
-                  <li>Confirm your enrollment by [deadline date]</li>
-                  <li>Submit required documents to the admissions office</li>
-                  <li>Pay the enrollment fee</li>
-                  <li>Attend the orientation session</li>
-                </ol>
-              </>
-            ) : (
-              <>
-                <div style={{ 
-                  backgroundColor: '#fff1f0', 
-                  border: '1px solid #ffccc7',
-                  borderRadius: '4px',
-                  padding: '16px',
-                  margin: '16px 0'
-                }}>
-                  <h3 style={{ margin: '0 0 8px 0', color: '#ff4d4f' }}>
-                    Admission Result
+                <div style={{ height: '2px', background: 'linear-gradient(to right, transparent, #0066cc, transparent)', margin: '25px 0' }}></div>
+
+                <div style={{ margin: '30px 0' }}>
+                  <h3 style={{ fontSize: '18px', color: '#0066cc', marginBottom: '15px', paddingBottom: '8px', borderBottom: '2px solid #e0e0e0' }}>
+                    📋 Thông tin trúng tuyển
                   </h3>
-                  <p style={{ margin: 0 }}>
-                    Unfortunately, you were not selected for admission in this round.
-                  </p>
+                  
+                  <div style={{ display: 'flex', padding: '12px 0', borderBottom: '1px solid #f0f0f0' }}>
+                    <span style={{ fontWeight: 600, color: '#555', minWidth: '200px' }}>🎯 Ngành học:</span>
+                    <span style={{ color: '#000', fontWeight: 500 }}>{previewData.programName}</span>
+                  </div>
+                  
+                  <div style={{ display: 'flex', padding: '12px 0', borderBottom: '1px solid #f0f0f0' }}>
+                    <span style={{ fontWeight: 600, color: '#555', minWidth: '200px' }}>📝 Phương thức xét tuyển:</span>
+                    <span style={{ color: '#000', fontWeight: 500 }}>Xét tuyển học bạ THPT</span>
+                  </div>
+                  
+                  <div style={{ display: 'flex', padding: '12px 0', borderBottom: '1px solid #f0f0f0' }}>
+                    <span style={{ fontWeight: 600, color: '#555', minWidth: '200px' }}>⭐ Nguyện vọng trúng tuyển:</span>
+                    <span style={{ color: '#000', fontWeight: 500 }}>Nguyện vọng {previewData.preference} (NV{previewData.preference})</span>
+                  </div>
+                  
+                  <div style={{ display: 'flex', padding: '12px 0' }}>
+                    <span style={{ fontWeight: 600, color: '#555', minWidth: '200px' }}>📊 Điểm xét tuyển:</span>
+                    <span style={{ color: '#4caf50', fontSize: '18px', fontWeight: 700 }}>{previewData.score.toFixed(2)}</span>
+                  </div>
                 </div>
 
-                <p>
-                  We encourage you to:
-                </p>
-                <ul>
-                  <li>Apply for other programs that may be available</li>
-                  <li>Consider reapplying in the next admission session</li>
-                  <li>Contact our admissions office for guidance</li>
-                </ul>
+                <div style={{ backgroundColor: '#fff3cd', borderLeft: '5px solid #ffc107', padding: '20px', margin: '30px 0', borderRadius: '6px' }}>
+                  <h4 style={{ fontSize: '16px', color: '#856404', marginBottom: '12px', fontWeight: 700 }}>
+                    ⚠️ Lưu ý quan trọng
+                  </h4>
+                  <ul style={{ margin: '10px 0', paddingLeft: '20px' }}>
+                    <li style={{ margin: '8px 0', color: '#856404', fontSize: '14px' }}>
+                      <strong>Xác nhận nhập học:</strong> Vui lòng xác nhận nhập học theo hướng dẫn trên website của trường trong vòng 7 ngày.
+                    </li>
+                    <li style={{ margin: '8px 0', color: '#856404', fontSize: '14px' }}>
+                      <strong>Nộp hồ sơ:</strong> Chuẩn bị và nộp đầy đủ hồ sơ nhập học theo yêu cầu.
+                    </li>
+                  </ul>
+                </div>
+
+                <div style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '6px', margin: '25px 0' }}>
+                  <h4 style={{ fontSize: '16px', color: '#333', marginBottom: '12px' }}>
+                    📞 Thông tin liên hệ
+                  </h4>
+                  <div style={{ margin: '10px 0', fontSize: '14px', color: '#555' }}>
+                    <strong style={{ color: '#0066cc', minWidth: '100px', display: 'inline-block' }}>📧 Email:</strong>
+                    <span>tuyensinh@utc2.edu.vn</span>
+                  </div>
+                  <div style={{ margin: '10px 0', fontSize: '14px', color: '#555' }}>
+                    <strong style={{ color: '#0066cc', minWidth: '100px', display: 'inline-block' }}>☎️ Điện thoại:</strong>
+                    <span>(028) 3512 0808</span>
+                  </div>
+                  <div style={{ margin: '10px 0', fontSize: '14px', color: '#555' }}>
+                    <strong style={{ color: '#0066cc', minWidth: '100px', display: 'inline-block' }}>🏢 Địa chỉ:</strong>
+                    <span>450-451 Lê Văn Việt, Phường Tăng Nhơn Phú A, TP. Thủ Đức, TP. Hồ Chí Minh</span>
+                  </div>
+                  <div style={{ margin: '10px 0', fontSize: '14px', color: '#555' }}>
+                    <strong style={{ color: '#0066cc', minWidth: '100px', display: 'inline-block' }}>🌐 Website:</strong>
+                    <span>https://utc2.edu.vn</span>
+                  </div>
+                </div>
               </>
             )}
 
-            <p>
-              If you have any questions, please contact us at:
-            </p>
-            <ul style={{ listStyle: 'none', padding: 0 }}>
-              <li>📧 Email: admissions@university.edu.vn</li>
-              <li>📞 Phone: (024) 1234 5678</li>
-              <li>🏢 Office: Admissions Office, Building A</li>
-            </ul>
-
-            <p>
-              Best regards,<br />
-              <strong>Admissions Office</strong><br />
-              University Name
-            </p>
+            <div style={{ marginTop: '35px', paddingTop: '20px', borderTop: '1px solid #e0e0e0' }}>
+              <p style={{ margin: '5px 0', fontSize: '15px' }}>Một lần nữa, chúc mừng bạn đã trúng tuyển!</p>
+              <p style={{ margin: '20px 0 5px 0', fontSize: '15px' }}>Trân trọng,</p>
+              <p style={{ margin: '5px 0' }}><strong style={{ color: '#0066cc', fontSize: '16px' }}>Phòng Đào tạo - Trường Đại học Giao thông Vận tải TP.HCM</strong></p>
+            </div>
           </div>
 
           {/* Email Footer */}
           <div style={{ 
-            borderTop: '1px solid #d9d9d9', 
-            paddingTop: '16px',
-            marginTop: '24px',
-            fontSize: '12px',
-            color: '#999'
+            backgroundColor: '#f8f9fa', 
+            padding: '25px 30px',
+            textAlign: 'center',
+            fontSize: '13px',
+            color: '#666',
+            borderTop: '1px solid #e0e0e0'
           }}>
-            <p style={{ margin: 0 }}>
-              This is an automated email. Please do not reply to this message.
-            </p>
+            <p style={{ margin: '5px 0' }}><strong>⚡ Email tự động</strong></p>
+            <p style={{ margin: '5px 0' }}>Đây là email được gửi tự động từ hệ thống. Vui lòng không trả lời trực tiếp email này.</p>
+            <p style={{ marginTop: '15px', color: '#999' }}>© 2026 Trường Đại học Giao thông Vận tải TP.HCM. Bản quyền thuộc về.</p>
           </div>
         </div>
       </Modal>
@@ -451,32 +485,105 @@ export default function EmailPage() {
   const ConfirmationModal = () => {
     return (
       <Modal
-        title="Confirm Email Sending"
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <SendOutlined style={{ fontSize: '20px', color: '#ff4d4f' }} />
+            <span>Xác nhận gửi Email</span>
+          </div>
+        }
         open={showConfirm}
         onCancel={() => setShowConfirm(false)}
         onOk={handleSendEmails}
-        okText="Send Emails"
-        okButtonProps={{ danger: true, loading: sending }}
-        cancelButtonProps={{ disabled: sending }}
-        width={600}
+        okText={sending ? 'Đang gửi...' : 'Xác nhận gửi'}
+        cancelText="Hủy bỏ"
+        okButtonProps={{ 
+          danger: true, 
+          loading: sending,
+          icon: <SendOutlined />,
+          size: 'large'
+        }}
+        cancelButtonProps={{ 
+          disabled: sending,
+          size: 'large'
+        }}
+        width={650}
+        centered
       >
         <Space direction="vertical" style={{ width: '100%' }} size="large">
-          <Alert title="Warning"
-            description="You are about to send email notifications. This action cannot be undone."
+          <Alert
+            message="⚠️ Cảnh báo quan trọng"
+            description="Bạn sắp gửi thông báo email đến sinh viên. Hành động này không thể hoàn tác sau khi thực hiện."
             type="warning"
             showIcon
+            style={{ 
+              borderLeft: '4px solid #faad14',
+              backgroundColor: '#fffbe6'
+            }}
           />
           
-          <div>
-            <p><strong>Session:</strong> {selectedSession?.name} ({selectedSession?.year})</p>
-            <p><strong>Recipient Group:</strong> {getRecipientDescription()}</p>
-            <p><strong>Total Recipients:</strong> {recipientCount} students</p>
-          </div>
+          <Card 
+            size="small" 
+            style={{ 
+              backgroundColor: '#f0f5ff',
+              border: '1px solid #adc6ff'
+            }}
+          >
+            <Space direction="vertical" style={{ width: '100%' }} size="middle">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: 500, color: '#595959' }}>📅 Đợt tuyển sinh:</span>
+                <span style={{ fontWeight: 600, color: '#000' }}>
+                  {selectedSession?.name} ({selectedSession?.year})
+                </span>
+              </div>
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: 500, color: '#595959' }}>👥 Nhóm người nhận:</span>
+                <span style={{ fontWeight: 600, color: '#000' }}>
+                  {getRecipientDescription()}
+                </span>
+              </div>
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: 500, color: '#595959' }}>📧 Tổng số email:</span>
+                <Tag 
+                  color="blue" 
+                  style={{ 
+                    fontSize: '18px', 
+                    padding: '8px 16px',
+                    fontWeight: 700,
+                    margin: 0
+                  }}
+                >
+                  {recipientCount} sinh viên
+                </Tag>
+              </div>
+            </Space>
+          </Card>
 
-          <Alert title="Please Confirm"
-            description={`Are you sure you want to send emails to ${recipientCount} students? This process may take several minutes.`}
+          <Alert
+            message="📝 Xác nhận thông tin"
+            description={
+              <div>
+                <p style={{ margin: '8px 0' }}>
+                  Bạn có chắc chắn muốn gửi email đến <strong>{recipientCount} sinh viên</strong>?
+                </p>
+                <p style={{ margin: '8px 0' }}>
+                  • Email sẽ được xếp hàng và gửi bất đồng bộ trong nền
+                </p>
+                <p style={{ margin: '8px 0' }}>
+                  • Quá trình có thể mất vài phút tùy thuộc vào số lượng
+                </p>
+                <p style={{ margin: '8px 0' }}>
+                  • Hệ thống sẽ tự động thử lại nếu gửi thất bại (tối đa 3 lần)
+                </p>
+              </div>
+            }
             type="info"
             showIcon
+            style={{ 
+              borderLeft: '4px solid #1890ff',
+              backgroundColor: '#e6f7ff'
+            }}
           />
         </Space>
       </Modal>
@@ -546,26 +653,26 @@ export default function EmailPage() {
   return (
     <div style={{ padding: '24px' }}>
       <div style={{ marginBottom: '16px' }}>
-        <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 600 }}>Email Notifications</h1>
+        <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 600 }}>Gửi Email Thông Báo</h1>
         <p style={{ margin: '8px 0 0 0', color: '#666' }}>
-          Send admission result notifications to students via email
+          Gửi thông báo kết quả tuyển sinh cho sinh viên qua email
         </p>
       </div>
 
       {/* Email Configuration Card (Requirement 15.1) */}
       <Card
-        title="Email Configuration"
+        title="Cấu hình gửi email"
         style={{ marginBottom: '24px' }}
         loading={loading}
       >
         <Space direction="vertical" style={{ width: '100%' }} size="large">
           <div>
             <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
-              Select Admission Session <span style={{ color: 'red' }}>*</span>
+              Chọn đợt tuyển sinh <span style={{ color: 'red' }}>*</span>
             </label>
             <Select
               style={{ width: '100%' }}
-              placeholder="Select a session to send emails"
+              placeholder="Chọn đợt tuyển sinh để gửi email"
               value={selectedSessionId}
               onChange={handleSessionChange}
               disabled={sending}
@@ -573,24 +680,25 @@ export default function EmailPage() {
             >
               {sessions.map((session) => (
                 <Select.Option key={session.id} value={session.id}>
-                  {session.name} ({session.year}) - {session.status}
+                  {session.name} ({session.year}) - {session.status === 'active' ? 'Đang mở' : 'Đã đóng'}
                 </Select.Option>
               ))}
             </Select>
             {sessions.length === 0 && !loading && (
               <div style={{ color: '#ff4d4f', fontSize: '12px', marginTop: '4px' }}>
-                No closed sessions available. Please finalize a session first.
+                Không có đợt tuyển sinh nào. Vui lòng tạo đợt tuyển sinh và chạy lọc ảo trước.
               </div>
             )}
           </div>
 
           {selectedSession && (
-            <Alert title="Session Information"
+            <Alert
+              message="Thông tin đợt tuyển sinh"
               description={
                 <div>
-                  <p><strong>Name:</strong> {selectedSession.name}</p>
-                  <p><strong>Year:</strong> {selectedSession.year}</p>
-                  <p><strong>Status:</strong> {selectedSession.status}</p>
+                  <p><strong>Tên:</strong> {selectedSession.name}</p>
+                  <p><strong>Năm:</strong> {selectedSession.year}</p>
+                  <p><strong>Trạng thái:</strong> <Tag color={selectedSession.status === 'active' ? 'green' : 'default'}>{selectedSession.status === 'active' ? 'Đang mở' : 'Đã đóng'}</Tag></p>
                 </div>
               }
               type="info"
@@ -601,20 +709,20 @@ export default function EmailPage() {
           {/* Recipient Selection (Requirement 15.2) */}
           <div>
             <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
-              Select Recipients <span style={{ color: 'red' }}>*</span>
+              Chọn người nhận <span style={{ color: 'red' }}>*</span>
             </label>
             <Select
               style={{ width: '100%' }}
-              placeholder="Select recipient group"
+              placeholder="Chọn nhóm người nhận"
               value={recipientGroup}
               onChange={handleRecipientGroupChange}
               disabled={!selectedSessionId || sending}
               size="large"
             >
-              <Select.Option value="all">All Students</Select.Option>
-              <Select.Option value="accepted">Accepted Students Only</Select.Option>
-              <Select.Option value="rejected">Rejected Students Only</Select.Option>
-              <Select.Option value="program">Specific Program</Select.Option>
+              <Select.Option value="all">Tất cả sinh viên</Select.Option>
+              <Select.Option value="accepted">Chỉ sinh viên trúng tuyển</Select.Option>
+              <Select.Option value="rejected">Chỉ sinh viên không đậu</Select.Option>
+              <Select.Option value="program">Theo ngành cụ thể</Select.Option>
             </Select>
           </div>
 
@@ -622,19 +730,21 @@ export default function EmailPage() {
           {recipientGroup === 'program' && (
             <div>
               <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
-                Select Program <span style={{ color: 'red' }}>*</span>
+                Chọn ngành <span style={{ color: 'red' }}>*</span>
               </label>
               <Select
                 style={{ width: '100%' }}
-                placeholder="Select a program"
+                placeholder="Chọn ngành"
                 value={selectedProgramId}
                 onChange={handleProgramChange}
                 disabled={!selectedSessionId || sending}
                 size="large"
+                showSearch
+                optionFilterProp="children"
               >
                 {programs.map((program) => (
                   <Select.Option key={program.id} value={program.id}>
-                    {program.name} ({program.code})
+                    {program.code} - {program.name}
                   </Select.Option>
                 ))}
               </Select>
@@ -643,11 +753,28 @@ export default function EmailPage() {
 
           {/* Recipient Count Display (Requirement 15.2) */}
           {selectedSessionId && (
-            <Alert title="Recipient Information"
+            <Alert
+              message="Thông tin người nhận"
               description={
                 <div>
-                  <p><strong>Recipient Group:</strong> {getRecipientDescription()}</p>
-                  <p><strong>Total Recipients:</strong> {recipientCount} students</p>
+                  <p><strong>Nhóm người nhận:</strong> {getRecipientDescription()}</p>
+                  <div style={{ display: 'flex', gap: '16px', marginTop: '12px', flexWrap: 'wrap' }}>
+                    <div>
+                      <Tag color="blue" style={{ fontSize: '16px', padding: '6px 16px', fontWeight: 600 }}>
+                        Tổng: {recipientCount} sinh viên
+                      </Tag>
+                    </div>
+                    <div>
+                      <Tag color="green" style={{ fontSize: '14px', padding: '4px 12px' }}>
+                        Đậu: {admittedCount}
+                      </Tag>
+                    </div>
+                    <div>
+                      <Tag color="orange" style={{ fontSize: '14px', padding: '4px 12px' }}>
+                        Trượt: {notAdmittedCount}
+                      </Tag>
+                    </div>
+                  </div>
                 </div>
               }
               type="success"
@@ -656,7 +783,7 @@ export default function EmailPage() {
           )}
 
           <div>
-            <Space>
+            <Space size="middle">
               <Button
                 type="default"
                 icon={<EyeOutlined />}
@@ -664,7 +791,7 @@ export default function EmailPage() {
                 disabled={!selectedSessionId}
                 size="large"
               >
-                Preview Email
+                Xem trước Email
               </Button>
               
               <Button
@@ -678,8 +805,9 @@ export default function EmailPage() {
                   (recipientGroup === 'program' && !selectedProgramId)
                 }
                 size="large"
+                danger
               >
-                Send Emails
+                Gửi Email
               </Button>
               
               <Button
@@ -690,7 +818,7 @@ export default function EmailPage() {
                 }}
                 size="large"
               >
-                View History
+                Lịch sử gửi
               </Button>
             </Space>
           </div>
@@ -699,12 +827,14 @@ export default function EmailPage() {
 
       {/* Sending Progress Card */}
       {sendingProgress.status !== 'idle' && (
-        <Card title="Sending Progress" style={{ marginBottom: '24px' }}>
+        <Card title="Tiến trình gửi email" style={{ marginBottom: '24px' }}>
           <Space direction="vertical" style={{ width: '100%' }} size="large">
             {sendingProgress.status === 'sending' && (
               <>
-                <Spin size="large" />
-                <p style={{ textAlign: 'center', color: '#666' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <Spin size="large" />
+                </div>
+                <p style={{ textAlign: 'center', color: '#666', fontSize: '16px' }}>
                   {sendingProgress.message}
                 </p>
               </>
@@ -712,7 +842,8 @@ export default function EmailPage() {
 
             {sendingProgress.status === 'completed' && (
               <>
-                <Alert title="Emails Sent Successfully"
+                <Alert
+                  message="Gửi email thành công!"
                   description={sendingProgress.message}
                   type="success"
                   showIcon
@@ -720,16 +851,18 @@ export default function EmailPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                   <Card size="small" style={{ backgroundColor: '#f6ffed' }}>
                     <Statistic
-                      title="Successfully Sent"
+                      title="Đã gửi thành công"
                       value={sendingProgress.sent || 0}
-                      valueStyle={{ color: '#52c41a' }}
+                      valueStyle={{ color: '#52c41a', fontSize: '32px' }}
+                      suffix="email"
                     />
                   </Card>
                   <Card size="small" style={{ backgroundColor: '#fff1f0' }}>
                     <Statistic
-                      title="Failed"
+                      title="Thất bại"
                       value={sendingProgress.failed || 0}
-                      valueStyle={{ color: '#ff4d4f' }}
+                      valueStyle={{ color: '#ff4d4f', fontSize: '32px' }}
+                      suffix="email"
                     />
                   </Card>
                 </div>
@@ -737,7 +870,8 @@ export default function EmailPage() {
             )}
 
             {sendingProgress.status === 'failed' && (
-              <Alert title="Email Sending Failed"
+              <Alert
+                message="Gửi email thất bại"
                 description={sendingProgress.message}
                 type="error"
                 showIcon
@@ -748,22 +882,24 @@ export default function EmailPage() {
       )}
 
       {/* Information Card */}
-      <Card title="About Email Notifications" type="inner">
+      <Card title="Về thông báo Email" type="inner">
         <Space direction="vertical" style={{ width: '100%' }}>
           <p>
-            Email notifications are sent to all admitted students in the selected session.
-            Each email contains:
+            Email thông báo sẽ được gửi đến tất cả sinh viên trong đợt tuyển sinh đã chọn.
+            Mỗi email bao gồm:
           </p>
           <ul style={{ paddingLeft: '20px' }}>
-            <li>Student's admission status (Accepted/Rejected)</li>
-            <li>Program name and code</li>
-            <li>Total score and ranking (if accepted)</li>
-            <li>Next steps and important dates</li>
+            <li>Trạng thái tuyển sinh của sinh viên (Trúng tuyển/Không đậu)</li>
+            <li>Tên ngành và mã ngành</li>
+            <li>Tổng điểm và xếp hạng (nếu trúng tuyển)</li>
+            <li>Các bước tiếp theo và ngày quan trọng</li>
           </ul>
-          <p>
-            <strong>Note:</strong> Emails are queued and sent asynchronously in the background.
-            The process may take several minutes depending on the number of recipients.
-          </p>
+          <Alert
+            message="Lưu ý quan trọng"
+            description="Email sẽ được xếp hàng và gửi bất đồng bộ trong nền. Quá trình có thể mất vài phút tùy thuộc vào số lượng người nhận."
+            type="warning"
+            showIcon
+          />
         </Space>
       </Card>
 

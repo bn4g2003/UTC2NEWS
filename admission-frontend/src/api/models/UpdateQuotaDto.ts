@@ -3,7 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { QuotaConditionsDto } from './QuotaConditionsDto';
-
 export type UpdateQuotaDto = {
     /**
      * Number of admission slots

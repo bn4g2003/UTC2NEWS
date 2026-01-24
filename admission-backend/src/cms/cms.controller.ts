@@ -91,13 +91,26 @@ export class CmsController {
 
   // Post endpoints
   @Get('posts/search')
-  @ApiOperation({ summary: 'Search posts (Vector)', description: 'Semantic search for posts using Vector embeddings' })
-  @ApiQuery({ name: 'q', required: true, description: 'Search query' })
-  @ApiQuery({ name: 'limit', required: false, description: 'Number of results (default: 5)' })
+  @ApiOperation({ 
+    summary: 'Search posts (Hybrid + Chunks)', 
+    description: 'Advanced search combining Vector embeddings, chunking, and keyword matching',
+    operationId: 'searchPosts'  // ← Thêm operationId để gen đúng tên method
+  })
+  @ApiQuery({ name: 'q', required: true, description: 'Search query', type: String })
+  @ApiQuery({ name: 'limit', required: false, description: 'Number of results (default: 5)', type: Number })
+  @ApiQuery({ name: 'hybrid', required: false, description: 'Use hybrid search (default: true)', type: Boolean })
+  @ApiQuery({ name: 'chunks', required: false, description: 'Use chunk-based search (default: true)', type: Boolean })
   @ApiResponse({ status: 200, description: 'Search results retrieved successfully' })
-  async searchPosts(@Query('q') q: string, @Query('limit') limit?: number) {
+  async searchPosts(
+    @Query('q') q: string, 
+    @Query('limit') limit?: number,
+    @Query('hybrid') hybrid?: string,
+    @Query('chunks') chunks?: string
+  ) {
     if (!q) return [];
-    return await this.cmsService.searchPosts(q, limit ? Number(limit) : 5);
+    const useHybrid = hybrid !== 'false';
+    const useChunks = chunks !== 'false';
+    return await this.cmsService.searchPosts(q, limit ? Number(limit) : 5, useHybrid, useChunks);
   }
 
   @Post('posts')
