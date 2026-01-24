@@ -59,12 +59,7 @@ export class EmailService {
      */
     public static emailControllerGetRecipientCount(
         id: string,
-    ): CancelablePromise<{
-        count: number;
-        admitted: number;
-        notAdmitted: number;
-        sessionId: string;
-    }> {
+    ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/email/sessions/{id}/recipient-count',

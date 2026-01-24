@@ -58,6 +58,27 @@ export class UsersService {
         });
     }
     /**
+     * Search users
+     * Search users by name, username or email (public for authenticated users)
+     * @param q Search query
+     * @param limit Limit results
+     * @returns any Users found successfully
+     * @throws ApiError
+     */
+    public static usersControllerSearch(
+        q: string,
+        limit?: number,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/users/search',
+            query: {
+                'q': q,
+                'limit': limit,
+            },
+        });
+    }
+    /**
      * Get current user profile
      * Retrieve profile information of the authenticated user
      * @returns any Profile retrieved successfully

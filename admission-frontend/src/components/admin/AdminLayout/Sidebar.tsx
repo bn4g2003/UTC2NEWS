@@ -28,6 +28,7 @@ import {
   SettingOutlined,
   DatabaseOutlined,
   ThunderboltOutlined,
+  MessageOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTES, PERMISSIONS } from '@/config/constants';
@@ -116,6 +117,9 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
         createMenuItem('Gửi email', ROUTES.ADMIN.EMAIL, <MailOutlined />, undefined, PERMISSIONS.EMAIL.SEND),
       ]
     ),
+
+    // Communication
+    createMenuItem('Giao tiếp', ROUTES.ADMIN.COMMUNICATION.CHAT, <MessageOutlined />),
 
     // Content Management Section
     createMenuItem(

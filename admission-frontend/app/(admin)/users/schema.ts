@@ -16,16 +16,16 @@ export const userSchema = z.object({
     .min(3, 'Username must be at least 3 characters')
     .max(50, 'Username must not exceed 50 characters')
     .regex(/^[a-zA-Z0-9_-]+$/, 'Username can only contain letters, numbers, underscores, and hyphens'),
-  
+
   password: z
     .string()
     .optional(),
-  
+
   email: z
     .string()
     .min(1, 'Email is required')
     .email('Invalid email address'),
-  
+
   fullName: z
     .string()
     .min(1, 'Full name is required')
@@ -34,10 +34,15 @@ export const userSchema = z.object({
       /^[a-zA-ZàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ\s]+$/,
       'Full name can only contain letters and spaces'
     ),
-  
+
   isActive: z
     .boolean()
     .default(true),
+
+  roleIds: z
+    .array(z.string())
+    .optional()
+    .default([]),
 });
 
 /**

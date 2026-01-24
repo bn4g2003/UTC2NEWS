@@ -15,11 +15,17 @@ const PROTECTED_ROUTES = [
   '/students',
   '/programs',
   '/sessions',
+  '/quotas',
+  '/preferences',
   '/import',
   '/filter',
   '/results',
   '/email',
-  '/cms',
+  '/communication',
+  '/posts',
+  '/categories',
+  '/faqs',
+  '/media',
 ];
 
 // Public routes that don't require authentication

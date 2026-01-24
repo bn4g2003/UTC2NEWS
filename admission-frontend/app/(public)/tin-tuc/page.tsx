@@ -60,7 +60,7 @@ export default function NewsPage() {
 
       // 1. If Search Query exists -> Use Smart Vector Search API
       if (searchQuery.trim()) {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/api/cms/posts/search?q=${encodeURIComponent(searchQuery)}&limit=20`);
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000'}/api/cms/posts/search?q=${encodeURIComponent(searchQuery)}&limit=20`);
         if (response.ok) {
           const searchResults = await response.json();
           setPosts(searchResults);

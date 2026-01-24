@@ -13,6 +13,7 @@ import { FilterModule } from './filter/filter.module';
 import { ResultModule } from './result/result.module';
 import { EmailModule } from './email/email.module';
 import { ConfigModule } from './config/config.module';
+import { CommunicationModule } from './communication/communication.module';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
 
 @Module({
@@ -29,6 +30,7 @@ import { LoggerMiddleware } from './common/middleware/logger.middleware';
     ResultModule,
     EmailModule,
     ConfigModule,
+    CommunicationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

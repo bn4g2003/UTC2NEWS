@@ -10,8 +10,15 @@ import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
 import { usePagination } from '@/hooks/usePagination';
 import { useModal } from '@/hooks/useModal';
 import { UsersService } from '@/api/services/UsersService';
+import { RbacService } from '@/api/services/RbacService';
 import { createUserSchema, updateUserSchema, type CreateUserFormData, type UpdateUserFormData } from './schema';
 import type { Column, DataGridAction } from '@/components/admin/DataGrid/types';
+
+interface Role {
+  id: string;
+  name: string;
+  description: string;
+}
 
 interface User {
   id: string;
@@ -21,36 +28,52 @@ interface User {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  roles?: { role: Role }[];
 }
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  
+
   const pagination = usePagination(10);
   const createModal = useModal();
   const editModal = useModal();
   const deleteModal = useModal();
-  
+
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+
+  // Fetch roles
+  const fetchRoles = useCallback(async () => {
+    try {
+      const response = await RbacService.rbacControllerGetAllRoles();
+      setRoles(response || []);
+    } catch (err) {
+      console.error('Failed to fetch roles:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchRoles();
+  }, [fetchRoles]);
 
   // Fetch users from API
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const response = await UsersService.usersControllerFindAll(
         pagination.currentPage,
         pagination.pageSize
       );
-      
+
       // Filter users based on search and status
       let filteredUsers = response.data || response || [];
-      
+
       // Apply search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
@@ -60,15 +83,15 @@ export default function UsersPage() {
           user.fullName.toLowerCase().includes(query)
         );
       }
-      
+
       // Apply status filter
       if (statusFilter !== 'all') {
         const isActive = statusFilter === 'active';
         filteredUsers = filteredUsers.filter((user: User) => user.isActive === isActive);
       }
-      
+
       setUsers(filteredUsers);
-      
+
       // Update total count for pagination
       const total = response.total || filteredUsers.length;
       pagination.setTotal(total);
@@ -90,7 +113,19 @@ export default function UsersPage() {
   // Handle create user
   const handleCreate = async (data: CreateUserFormData) => {
     try {
-      await UsersService.usersControllerCreateUser(data);
+      // 1. Separate data
+      const { roleIds, ...createData } = data;
+
+      // 2. Create User
+      const newUser = await UsersService.usersControllerCreateUser(createData);
+
+      // 3. Assign Roles if selected
+      if (roleIds && roleIds.length > 0) {
+        await RbacService.rbacControllerAssignRolesToUser(newUser.id, {
+          roleIds: roleIds,
+        });
+      }
+
       message.success('Tạo người dùng thành công');
       fetchUsers();
       createModal.close();
@@ -104,15 +139,28 @@ export default function UsersPage() {
   // Handle edit user
   const handleEdit = async (data: UpdateUserFormData) => {
     if (!selectedUser) return;
-    
+
     try {
-      // Remove password if empty
-      const updateData: any = { ...data };
-      if (!updateData.password) {
-        delete updateData.password;
-      }
-      
+      // 1. Separate data
+      const { roleIds, username, password, ...updateData } = data;
+
+      // 2. Update User info (email, fullName, isActive)
       await UsersService.usersControllerUpdateUser(selectedUser.id, updateData);
+
+      // 3. Update Roles if changed (always send roles from form if present)
+      if (roleIds) {
+        await RbacService.rbacControllerAssignRolesToUser(selectedUser.id, {
+          roleIds: roleIds,
+        });
+      }
+
+      // 4. Update Password if provided
+      if (password && password.length >= 8) {
+        await UsersService.usersControllerUpdatePassword(selectedUser.id, {
+          newPassword: password
+        });
+      }
+
       message.success('Cập nhật người dùng thành công');
       fetchUsers();
       editModal.close();
@@ -127,7 +175,7 @@ export default function UsersPage() {
   // Handle delete user
   const handleDelete = async () => {
     if (!selectedUser) return;
-    
+
     try {
       await UsersService.usersControllerDeleteUser(selectedUser.id);
       message.success('Xóa người dùng thành công');
@@ -177,6 +225,22 @@ export default function UsersPage() {
       title: 'Họ và tên',
       dataIndex: 'fullName',
       sortable: true,
+    },
+    {
+      key: 'roles',
+      title: 'Vai trò',
+      dataIndex: 'roles',
+      render: (roles: { role: Role }[]) => (
+        <Space size={[0, 4]} wrap>
+          {roles && roles.length > 0 ? (
+            roles.map(({ role }) => (
+              <Tag key={role.id} color="blue">{role.name}</Tag>
+            ))
+          ) : (
+            <Tag color="default">N/A</Tag>
+          )}
+        </Space>
+      ),
     },
     {
       key: 'email',
@@ -283,6 +347,7 @@ export default function UsersPage() {
           fullName: '',
           password: '',
           isActive: true,
+          roleIds: [],
         }}
       >
         {(form) => (
@@ -378,6 +443,25 @@ export default function UsersPage() {
 
             <div>
               <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
+                Roles
+              </label>
+              <Controller
+                name="roleIds"
+                control={form.control}
+                render={({ field }) => (
+                  <Select
+                    {...field}
+                    mode="multiple"
+                    placeholder="Select roles"
+                    style={{ width: '100%' }}
+                    options={roles.map(role => ({ label: role.name, value: role.id }))}
+                  />
+                )}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
                 Status
               </label>
               <Controller
@@ -414,6 +498,7 @@ export default function UsersPage() {
           fullName: selectedUser?.fullName || '',
           isActive: selectedUser?.isActive ?? true,
           password: '', // Password is optional for edit
+          roleIds: selectedUser?.roles?.map(r => r.role.id) || [],
         }}
       >
         {(form) => (
@@ -484,6 +569,25 @@ export default function UsersPage() {
                   {form.formState.errors.fullName.message}
                 </div>
               )}
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
+                Roles
+              </label>
+              <Controller
+                name="roleIds"
+                control={form.control}
+                render={({ field }) => (
+                  <Select
+                    {...field}
+                    mode="multiple"
+                    placeholder="Select roles"
+                    style={{ width: '100%' }}
+                    options={roles.map(role => ({ label: role.name, value: role.id }))}
+                  />
+                )}
+              />
             </div>
 
             <div>

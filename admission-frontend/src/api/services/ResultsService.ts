@@ -30,7 +30,7 @@ export class ResultsService {
     }
     /**
      * Get admission results as JSON
-     * Retrieve list of all admitted students for a session with their details
+     * Retrieve list of all students with their admission status (one row per student)
      * @param id Admission session ID
      * @returns any Results retrieved successfully
      * @throws ApiError

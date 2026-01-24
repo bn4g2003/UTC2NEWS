@@ -77,6 +77,9 @@ export const ROUTES = {
     FILTER: '/filter',
     RESULTS: '/results',
     EMAIL: '/email',
+    COMMUNICATION: {
+      CHAT: '/communication/chat',
+    },
     CMS: {
       POSTS: '/posts',
       CATEGORIES: '/categories',
@@ -183,5 +186,12 @@ export const PERMISSIONS = {
   CONFIG: {
     READ: 'config:read',
     UPDATE: 'config:update',
+  },
+  COMMUNICATION: {
+    CHAT: {
+      READ: 'chat:read',
+      SEND: 'chat:send',
+      CREATE_ROOM: 'chat:create_room',
+    },
   },
 } as const;

@@ -36,7 +36,7 @@ import { RequirePermissions } from '../rbac/decorators/require-permissions.decor
 @Controller('users')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly usersService: UsersService) { }
 
   @Post()
   @RequirePermissions('users:create')
@@ -50,6 +50,18 @@ export class UsersController {
   @ApiResponse({ status: 409, description: 'Username or email already exists' })
   async createUser(@Body() createUserDto: CreateUserDto) {
     return this.usersService.createUser(createUserDto);
+  }
+
+  @Get('search')
+  @ApiOperation({
+    summary: 'Search users',
+    description: 'Search users by name, username or email (public for authenticated users)',
+  })
+  @ApiQuery({ name: 'q', required: true, description: 'Search query', example: 'Nguyen' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Limit results', example: 20 })
+  @ApiResponse({ status: 200, description: 'Users found successfully' })
+  async search(@Query('q') query: string, @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number) {
+    return this.usersService.searchUsers(query || '', limit);
   }
 
   @Get()

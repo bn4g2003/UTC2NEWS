@@ -9,7 +9,7 @@ export const quotaSchema = z.object({
 
 export const quotaConditionsSchema = z.object({
   minTotalScore: z.number().min(0).max(30).optional(),
-  minSubjectScores: z.record(z.number().min(0).max(10)).optional(),
+  minSubjectScores: z.record(z.string(), z.number().min(0).max(10)).optional(),
   requiredSubjects: z.array(z.string()).optional(),
   subjectCombinations: z.array(z.array(z.string())).optional(),
   priorityBonus: z

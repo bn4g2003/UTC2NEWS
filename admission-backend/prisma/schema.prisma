@@ -8,17 +8,23 @@ datasource db {
 }
 
 model User {
-  id           String      @id @default(uuid())
-  username     String      @unique
-  passwordHash String
-  email        String      @unique
-  fullName     String
-  isActive     Boolean     @default(true)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  mediaFiles   MediaFile[]
-  posts        Post[]
-  roles        UserRole[]
+  id                      String                @id @default(uuid())
+  username                String                @unique
+  passwordHash            String
+  email                   String                @unique
+  fullName                String
+  isActive                Boolean               @default(true)
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+  mediaFiles              MediaFile[]
+  posts                   Post[]
+  roles                   UserRole[]
+  chatRoomParticipants    ChatRoomParticipant[]
+  sentMessages            Message[]
+  presence                UserPresence?
+  createdChatRooms        ChatRoom[]            @relation("CreatedChatRooms")
+  hostedVideoSessions     VideoSession[]
+  videoParticipations     VideoParticipant[]
 
   @@map("users")
 }
@@ -277,4 +283,109 @@ enum EmailStatus {
   processing
   sent
   failed
+}
+
+model ChatRoom {
+  id           String                @id @default(uuid())
+  name         String?
+  type         RoomType              @default(DIRECT)
+  isPublic     Boolean               @default(false)
+  description  String?
+  createdBy    String?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  participants ChatRoomParticipant[]
+  messages     Message[]
+  creator      User?                 @relation("CreatedChatRooms", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([isPublic, type])
+  @@map("chat_rooms")
+}
+
+model ChatRoomParticipant {
+  id         String    @id @default(uuid())
+  roomId     String
+  userId     String
+  role       String    @default("MEMBER") // ADMIN, MEMBER
+  joinedAt   DateTime  @default(now())
+  lastReadAt DateTime?
+  room       ChatRoom  @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, userId])
+  @@map("chat_room_participants")
+}
+
+model Message {
+  id        String      @id @default(uuid())
+  roomId    String
+  senderId  String
+  content   String
+  type      MessageType @default(TEXT)
+  metadata  Json?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  deletedAt DateTime?
+  room      ChatRoom    @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sender    User        @relation(fields: [senderId], references: [id])
+
+  @@index([roomId, createdAt])
+  @@map("messages")
+}
+
+model UserPresence {
+  userId   String   @id
+  status   String   @default("offline")
+  lastSeen DateTime @default(now())
+  socketId String?
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_presence")
+}
+
+model VideoSession {
+  id           String             @id @default(uuid())
+  roomId       String             @unique
+  title        String
+  hostId       String
+  status       VideoSessionStatus @default(SCHEDULED)
+  startedAt    DateTime?
+  endedAt      DateTime?
+  createdAt    DateTime           @default(now())
+  host         User               @relation(fields: [hostId], references: [id])
+  participants VideoParticipant[]
+
+  @@map("video_sessions")
+}
+
+model VideoParticipant {
+  id        String       @id @default(uuid())
+  sessionId String
+  userId    String
+  joinedAt  DateTime     @default(now())
+  leftAt    DateTime?
+  duration  Int?
+  session   VideoSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id])
+
+  @@map("video_participants")
+}
+
+enum RoomType {
+  DIRECT
+  GROUP
+  CHANNEL
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  SYSTEM
+}
+
+enum VideoSessionStatus {
+  SCHEDULED
+  ACTIVE
+  ENDED
 }

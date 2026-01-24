@@ -15,7 +15,7 @@ import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async createUser(createUserDto: CreateUserDto) {
     // Check if username already exists
@@ -62,6 +62,30 @@ export class UsersService {
     return user;
   }
 
+  async searchUsers(query: string, limit: number = 20) {
+    return this.prisma.user.findMany({
+      where: {
+        OR: [
+          { fullName: { contains: query, mode: 'insensitive' } },
+          { username: { contains: query, mode: 'insensitive' } },
+          { email: { contains: query, mode: 'insensitive' } },
+        ],
+        isActive: true,
+      },
+      take: limit,
+      select: {
+        id: true,
+        username: true,
+        fullName: true,
+        email: true,
+        // avatar: true, // Assuming avatar field exists or will be added later
+      },
+      orderBy: {
+        fullName: 'asc',
+      },
+    });
+  }
+
   async findAll(page: number = 1, limit: number = 10) {
     const skip = (page - 1) * limit;
 
@@ -77,6 +101,11 @@ export class UsersService {
           isActive: true,
           createdAt: true,
           updatedAt: true,
+          roles: {
+            include: {
+              role: true,
+            },
+          },
         },
         orderBy: {
           createdAt: 'desc',
