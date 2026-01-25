@@ -24,7 +24,7 @@ export class UsersService {
     });
 
     if (existingUsername) {
-      throw new ConflictException('Username already exists');
+      throw new ConflictException('Tên đăng nhập đã tồn tại');
     }
 
     // Check if email already exists
@@ -33,7 +33,7 @@ export class UsersService {
     });
 
     if (existingEmail) {
-      throw new ConflictException('Email already exists');
+      throw new ConflictException('Email đã tồn tại');
     }
 
     // Hash password
@@ -153,7 +153,7 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found`);
+      throw new NotFoundException(`Không tìm thấy người dùng với ID ${id}`);
     }
 
     return user;
@@ -166,7 +166,7 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found`);
+      throw new NotFoundException(`Không tìm thấy người dùng với ID ${id}`);
     }
 
     // Check if email is being changed and already exists
@@ -176,7 +176,7 @@ export class UsersService {
       });
 
       if (existingEmail) {
-        throw new ConflictException('Email already exists');
+        throw new ConflictException('Email đã tồn tại');
       }
     }
 
@@ -205,7 +205,7 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found`);
+      throw new NotFoundException(`Không tìm thấy người dùng với ID ${id}`);
     }
 
     // Delete user (cascade will handle role assignments)
@@ -213,7 +213,7 @@ export class UsersService {
       where: { id },
     });
 
-    return { message: 'User deleted successfully' };
+    return { message: 'Xóa người dùng thành công' };
   }
 
   async updateStatus(id: string, updateStatusDto: UpdateStatusDto) {
@@ -223,7 +223,7 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found`);
+      throw new NotFoundException(`Không tìm thấy người dùng với ID ${id}`);
     }
 
     // Update status
@@ -250,7 +250,7 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new NotFoundException(`User with ID ${userId} not found`);
+      throw new NotFoundException(`Không tìm thấy người dùng với ID ${userId}`);
     }
 
     // Verify current password
@@ -260,7 +260,7 @@ export class UsersService {
     );
 
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Current password is incorrect');
+      throw new UnauthorizedException('Mật khẩu hiện tại không đúng');
     }
 
     // Hash new password
@@ -272,7 +272,7 @@ export class UsersService {
       data: { passwordHash: hashedPassword },
     });
 
-    return { message: 'Password changed successfully' };
+    return { message: 'Đổi mật khẩu thành công' };
   }
 
   async updatePassword(id: string, updatePasswordDto: UpdatePasswordDto) {
@@ -282,7 +282,7 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found`);
+      throw new NotFoundException(`Không tìm thấy người dùng với ID ${id}`);
     }
 
     // Hash new password
@@ -294,7 +294,7 @@ export class UsersService {
       data: { passwordHash: hashedPassword },
     });
 
-    return { message: 'Password updated successfully' };
+    return { message: 'Cập nhật mật khẩu thành công' };
   }
 
   async getProfile(userId: string) {
@@ -325,7 +325,7 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new NotFoundException(`User with ID ${userId} not found`);
+      throw new NotFoundException(`Không tìm thấy người dùng với ID ${userId}`);
     }
 
     return user;

@@ -1,0 +1,79 @@
+### Test Jira API Endpoints
+
+### 1. Login first to get token
+POST http://localhost:3000/auth/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "admin123"
+}
+
+### 2. Create Project (use token from login)
+POST http://localhost:3000/jira/projects
+Content-Type: application/json
+Authorization: Bearer YOUR_TOKEN_HERE
+
+{
+  "name": "Test Project",
+  "key": "TEST",
+  "description": "This is a test project"
+}
+
+### 3. Get all projects
+GET http://localhost:3000/jira/projects
+Authorization: Bearer YOUR_TOKEN_HERE
+
+### 4. Get specific project
+GET http://localhost:3000/jira/projects/PROJECT_ID_HERE
+Authorization: Bearer YOUR_TOKEN_HERE
+
+### 5. Create Task
+POST http://localhost:3000/jira/projects/PROJECT_ID_HERE/tasks
+Content-Type: application/json
+Authorization: Bearer YOUR_TOKEN_HERE
+
+{
+  "title": "Test Task",
+  "description": "<p>This is a test task</p>",
+  "columnId": "COLUMN_ID_HERE",
+  "type": "TASK",
+  "priority": "MEDIUM"
+}
+
+### 6. Get Task
+GET http://localhost:3000/jira/tasks/TASK_ID_HERE
+Authorization: Bearer YOUR_TOKEN_HERE
+
+### 7. Update Task
+PUT http://localhost:3000/jira/tasks/TASK_ID_HERE
+Content-Type: application/json
+Authorization: Bearer YOUR_TOKEN_HERE
+
+{
+  "title": "Updated Task Title",
+  "priority": "HIGH"
+}
+
+### 8. Move Task
+PUT http://localhost:3000/jira/tasks/TASK_ID_HERE/move
+Content-Type: application/json
+Authorization: Bearer YOUR_TOKEN_HERE
+
+{
+  "columnId": "NEW_COLUMN_ID_HERE",
+  "position": 1000
+}
+
+### 9. Add Comment
+POST http://localhost:3000/jira/tasks/TASK_ID_HERE/comments
+Content-Type: application/json
+Authorization: Bearer YOUR_TOKEN_HERE
+
+{
+  "content": "This is a test comment"
+}
+
+### 10. Delete Task
+DELETE http://localhost:3000/jira/tasks/TASK_ID_HERE
+Authorization: Bearer YOUR_TOKEN_HERE

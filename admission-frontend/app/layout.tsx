@@ -5,6 +5,7 @@ import "./globals.css";
 import { APP_CONFIG } from "@/config/constants";
 import { ClientInitializer } from "@/components/shared/ClientInitializer";
 import { ThemeProvider } from "@/components/shared/ThemeProvider";
+import { VideoCallProvider } from "@/providers/VideoCallProvider";
 
 const interSans = Inter({
   variable: "--font-inter",
@@ -33,9 +34,11 @@ export default function RootLayout({
       >
         <ThemeProvider>
           <ClientInitializer />
-          <AntdRegistry>
-            {children}
-          </AntdRegistry>
+          <VideoCallProvider>
+            <AntdRegistry>
+              {children}
+            </AntdRegistry>
+          </VideoCallProvider>
         </ThemeProvider>
       </body>
     </html>

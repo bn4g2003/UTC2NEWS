@@ -33,7 +33,7 @@ export class AuthService {
     const user = await this.validateUser(loginDto.username, loginDto.password);
 
     if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('Tên đăng nhập hoặc mật khẩu không đúng');
     }
 
     // Get user with roles and permissions
@@ -62,7 +62,7 @@ export class AuthService {
     });
 
     if (!userWithPermissions) {
-      throw new UnauthorizedException('User not found');
+      throw new UnauthorizedException('Không tìm thấy người dùng');
     }
 
     // Extract all permissions from all roles

@@ -14,6 +14,7 @@ import { ChatService } from './chat.service';
 import { SendMessageDto } from './dto/send-message.dto';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { TypingIndicatorDto } from './dto/typing-indicator.dto';
+import { randomUUID } from 'crypto';
 
 @WebSocketGateway({
   cors: {
@@ -328,5 +329,60 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     } catch (error) {
       return { success: false, error: error.message };
     }
+  }
+
+  // --- Video Call Signaling ---
+
+  @SubscribeMessage('call:initiate')
+  async handleInitiateCall(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: string; roomName: string; type: 'DIRECT' | 'GROUP'; hmsRoomId: string },
+  ) {
+    const userId = client.data.userId;
+    if (!userId) return { success: false, error: 'User not authenticated' };
+
+    const callerInfo = await this.chatService['prisma'].user.findUnique({
+      where: { id: userId },
+      select: { id: true, fullName: true, username: true },
+    });
+
+    // Notify all participants in the chat room except the caller
+    client.to(`room:${data.roomId}`).emit('call:invitation', {
+      ...data,
+      caller: callerInfo,
+      callId: randomUUID(),
+    });
+
+    return { success: true };
+  }
+
+  @SubscribeMessage('call:response')
+  async handleCallResponse(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: string; callId: string; accept: boolean; hmsRoomId?: string },
+  ) {
+    const userId = client.data.userId;
+    if (!userId) return { success: false, error: 'User not authenticated' };
+
+    // Notify others in the chat room about the caller response
+    this.server.to(`room:${data.roomId}`).emit('call:status', {
+      ...data,
+      userId,
+    });
+
+    return { success: true };
+  }
+
+  @SubscribeMessage('call:end')
+  async handleCallEnd(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: string; callId: string },
+  ) {
+    this.server.to(`room:${data.roomId}`).emit('call:ended', {
+      ...data,
+      userId: client.data.userId,
+    });
+
+    return { success: true };
   }
 }

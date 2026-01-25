@@ -18,6 +18,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useSidebarCollapse();
   const pathname = usePathname();
   const isChatPage = pathname?.includes('/chat');
+  const isJiraPage = pathname?.includes('/jira');
+  const isFullHeightPage = isChatPage || isJiraPage;
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -30,19 +32,19 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         <Header collapsed={collapsed} onMenuClick={() => setCollapsed(!collapsed)} />
 
         {/* Content */}
-        <Content style={{ margin: isChatPage ? 0 : '0 16px', display: 'flex', flexDirection: 'column' }}>
-          {/* Breadcrumb - hide on chat page */}
-          {!isChatPage && <Breadcrumb />}
+        <Content style={{ margin: isFullHeightPage ? 0 : '0 16px', display: 'flex', flexDirection: 'column' }}>
+          {/* Breadcrumb - hide on full height pages */}
+          {!isFullHeightPage && <Breadcrumb />}
 
           {/* Page Content */}
           <div
             style={{
-              padding: isChatPage ? 0 : 24,
+              padding: isFullHeightPage ? 0 : 24,
               minHeight: 360,
               background: '#fff',
-              borderRadius: isChatPage ? 0 : 8,
+              borderRadius: isFullHeightPage ? 0 : 8,
               flex: 1, // Ensure content takes remaining space
-              display: isChatPage ? 'flex' : 'block', // Chat needs flex container behavior usually
+              display: isFullHeightPage ? 'flex' : 'block', // Full height pages need flex container
               flexDirection: 'column',
             }}
           >
@@ -50,8 +52,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           </div>
         </Content>
 
-        {/* Footer - hide on chat page */}
-        {!isChatPage && (
+        {/* Footer - hide on full height pages */}
+        {!isFullHeightPage && (
           <Layout.Footer style={{ textAlign: 'center' }}>
             Admission Management System ©{new Date().getFullYear()}
           </Layout.Footer>

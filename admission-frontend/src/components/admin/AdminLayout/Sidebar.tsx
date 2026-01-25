@@ -29,6 +29,7 @@ import {
   DatabaseOutlined,
   ThunderboltOutlined,
   MessageOutlined,
+  ProjectOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTES, PERMISSIONS } from '@/config/constants';
@@ -118,8 +119,16 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
       ]
     ),
 
-    // Communication
-    createMenuItem('Giao tiếp', ROUTES.ADMIN.COMMUNICATION.CHAT, <MessageOutlined />),
+    // Communication & Collaboration
+    createMenuItem(
+      'Giao tiếp & Cộng tác',
+      'communication',
+      <MessageOutlined />,
+      [
+        createMenuItem('Chat', ROUTES.ADMIN.COMMUNICATION.CHAT, <MessageOutlined />),
+        createMenuItem('Jira', ROUTES.ADMIN.JIRA, <ProjectOutlined />),
+      ]
+    ),
 
     // Content Management Section
     createMenuItem(
@@ -168,7 +177,6 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
   const filteredMenuItems = filterMenuByPermissions(menuItems);
 
   // Update selected keys based on current pathname
-  // Update selected keys based on current pathname
   useEffect(() => {
     // Set selected key based on pathname
     setSelectedKeys([pathname]);
@@ -190,6 +198,11 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
     ) {
       setOpenKeys(['admission_process']);
     } else if (
+      pathname === ROUTES.ADMIN.COMMUNICATION.CHAT ||
+      pathname?.startsWith(ROUTES.ADMIN.JIRA)
+    ) {
+      setOpenKeys(['communication']);
+    } else if (
       pathname === ROUTES.ADMIN.CMS.POSTS ||
       pathname === ROUTES.ADMIN.CMS.CATEGORIES ||
       pathname === ROUTES.ADMIN.CMS.FAQS ||
@@ -205,7 +218,7 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
   };
 
   // Root keys for accordion behavior
-  const rootSubmenuKeys = ['system', 'admission_data', 'admission_process', 'cms'];
+  const rootSubmenuKeys = ['system', 'admission_data', 'admission_process', 'communication', 'cms'];
 
   // Handle submenu open/close with accordion effect
   const handleOpenChange = (keys: string[]) => {

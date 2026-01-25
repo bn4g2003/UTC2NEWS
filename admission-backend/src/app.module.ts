@@ -14,6 +14,8 @@ import { ResultModule } from './result/result.module';
 import { EmailModule } from './email/email.module';
 import { ConfigModule } from './config/config.module';
 import { CommunicationModule } from './communication/communication.module';
+import { VideoCallModule } from './video-call/video-call.module';
+import { JiraModule } from './jira/jira.module';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
 
 @Module({
@@ -31,6 +33,8 @@ import { LoggerMiddleware } from './common/middleware/logger.middleware';
     EmailModule,
     ConfigModule,
     CommunicationModule,
+    VideoCallModule,
+    JiraModule,
   ],
   controllers: [AppController],
   providers: [AppService],

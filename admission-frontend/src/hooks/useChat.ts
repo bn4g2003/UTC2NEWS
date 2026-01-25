@@ -117,6 +117,29 @@ export function useChat() {
         updateRoom(roomId, { unreadCount: 0 });
       });
 
+      socket.on('call:invitation', (data: any) => {
+        console.log('Incoming call invitation:', data);
+        const event = new CustomEvent('call:incoming', { detail: data });
+        window.dispatchEvent(event);
+      });
+
+      socket.on('call:status', (data: any) => {
+        console.log('Call status update:', data);
+        const event = new CustomEvent('call:status:update', { detail: data });
+        window.dispatchEvent(event);
+      });
+
+      window.addEventListener('call:initiate:emit', (event: any) => {
+        const { roomId, roomName, type, hmsRoomId } = event.detail;
+        socket.emit('call:initiate', { roomId, roomName, type, hmsRoomId });
+      });
+
+      socket.on('call:ended', (data: any) => {
+        console.log('Call ended:', data);
+        const event = new CustomEvent('call:ended:notification', { detail: data });
+        window.dispatchEvent(event);
+      });
+
       return () => {
         socket.disconnect();
         socketRef.current = null;
@@ -477,5 +500,17 @@ export function useChat() {
         return [];
       }
     }, [token]),
+    initiateCall: useCallback((roomId: string, roomName: string, type: string, hmsRoomId: string) => {
+      if (!socketRef.current?.connected) return;
+      socketRef.current.emit('call:initiate', { roomId, roomName, type, hmsRoomId });
+    }, []),
+    respondToCall: useCallback((roomId: string, callId: string, accept: boolean, hmsRoomId?: string) => {
+      if (!socketRef.current?.connected) return;
+      socketRef.current.emit('call:response', { roomId, callId, accept, hmsRoomId });
+    }, []),
+    endCall: useCallback((roomId: string, callId: string) => {
+      if (!socketRef.current?.connected) return;
+      socketRef.current.emit('call:end', { roomId, callId });
+    }, []),
   };
 }

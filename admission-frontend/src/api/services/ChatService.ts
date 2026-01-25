@@ -10,6 +10,16 @@ import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
 export class ChatService {
     /**
+     * @returns any
+     * @throws ApiError
+     */
+    public static chatControllerUploadFile(): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/chat/upload',
+        });
+    }
+    /**
      * @param requestBody
      * @returns any
      * @throws ApiError
@@ -55,6 +65,22 @@ export class ChatService {
             query: {
                 'limit': limit,
                 'before': before,
+            },
+        });
+    }
+    /**
+     * @param roomId
+     * @returns any
+     * @throws ApiError
+     */
+    public static chatControllerGetPinnedMessages(
+        roomId: string,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/chat/rooms/{roomId}/pinned',
+            path: {
+                'roomId': roomId,
             },
         });
     }
@@ -137,6 +163,38 @@ export class ChatService {
             url: '/api/chat/presence/{userId}',
             path: {
                 'userId': userId,
+            },
+        });
+    }
+    /**
+     * @param id
+     * @returns any
+     * @throws ApiError
+     */
+    public static chatControllerDeleteMessage(
+        id: string,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/chat/messages/{id}',
+            path: {
+                'id': id,
+            },
+        });
+    }
+    /**
+     * @param roomId
+     * @returns any
+     * @throws ApiError
+     */
+    public static chatControllerDeleteRoom(
+        roomId: string,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/chat/rooms/{roomId}',
+            path: {
+                'roomId': roomId,
             },
         });
     }
