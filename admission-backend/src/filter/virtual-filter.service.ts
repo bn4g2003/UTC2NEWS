@@ -38,8 +38,8 @@ export class VirtualFilterService {
       // Step 1: Calculate scores for all applications
       const eligibilityReasons = await this.calculateScores(sessionId, tx);
 
-      // Step 2: Rank applications by score within each major
-      const rankedApplications = await this.rankApplications(sessionId, tx);
+      // Step 2: Get eligible applications for ranking (without persisting yet)
+      const rankedApplications = await this.getEligibleApplications(sessionId, tx);
 
       // Step 3: Process preferences and make admission decisions
       const decisions = await this.processPreferences(
@@ -49,8 +49,9 @@ export class VirtualFilterService {
         tx,
       );
 
-      // Step 4: Persist admission decisions
-      await this.persistDecisions(decisions, tx);
+      // Step 4: Calculate ranks and persist admission decisions
+      // This step now handles both ranking (excluding admitted_higher_priority) and status updates
+      await this.persistAndRankDecisions(decisions, tx);
 
       return decisions;
     });
@@ -176,12 +177,12 @@ export class VirtualFilterService {
   }
 
   /**
-   * Rank applications by score within each major
+   * Get eligible applications for ranking
    * @param sessionId - The admission session ID
    * @param tx - Prisma transaction client
-   * @returns Array of ranked applications
+   * @returns Array of ranked applications (provisional)
    */
-  async rankApplications(
+  async getEligibleApplications(
     sessionId: string,
     tx: Prisma.TransactionClient,
   ): Promise<RankedApplication[]> {
@@ -202,7 +203,7 @@ export class VirtualFilterService {
       ],
     });
 
-    // Group by major and assign ranks
+    // Group by major and assign provisional ranks (mostly for internal structure consistency)
     const rankedApplications: RankedApplication[] = [];
     let currentMajor = '';
     let currentRank = 0;
@@ -226,11 +227,7 @@ export class VirtualFilterService {
         rank: currentRank,
       });
 
-      // Update rank in database
-      await tx.application.update({
-        where: { id: app.id },
-        data: { rankInMajor: currentRank },
-      });
+      // DB update removed - we will rank final results later
     }
 
     return rankedApplications;
@@ -384,14 +381,61 @@ export class VirtualFilterService {
   }
 
   /**
-   * Persist admission decisions to the database
+   * Persist admission decisions and calculate final ranks
+   * Excludes candidates who passed higher priorities from ranking
    * @param decisions - Array of admission decisions
    * @param tx - Prisma transaction client
    */
-  private async persistDecisions(
+  private async persistAndRankDecisions(
     decisions: AdmissionDecision[],
     tx: Prisma.TransactionClient,
   ): Promise<void> {
+    // 1. Group decisions by major for ranking
+    const majorGroups = new Map<string, AdmissionDecision[]>();
+
+    for (const d of decisions) {
+      // Determine if should be ranked
+      // We exclude:
+      // - Eligible but passed higher priority (rejectionReason === 'admitted_higher_priority')
+      // - Ineligible (basic or quota) - strictly speaking should have been filtered out already or marked not_admitted
+      let shouldRank = true;
+
+      // If rejected due to higher priority, do not rank
+      if (d.status === 'not_admitted' && d.rejectionReason === 'admitted_higher_priority') {
+        shouldRank = false;
+      }
+
+      // If ineligible (score 0 or failed conditions), do not rank
+      if (d.rejectionReason === 'not_eligible_basic' || d.rejectionReason === 'not_eligible_quota') {
+        shouldRank = false;
+      }
+
+      if (shouldRank) {
+        const list = majorGroups.get(d.majorId) || [];
+        list.push(d);
+        majorGroups.set(d.majorId, list);
+      } else {
+        d.rankInMajor = null;
+      }
+    }
+
+    // 2. Assign ranks within groups
+    for (const [majorId, list] of majorGroups.entries()) {
+      // Sort by CalculatedScore DESC, then StudentID ASC (tie-breaker)
+      list.sort((a, b) => {
+        if (b.calculatedScore !== a.calculatedScore) {
+          return b.calculatedScore - a.calculatedScore;
+        }
+        return a.studentId.localeCompare(b.studentId);
+      });
+
+      // Assign ranks
+      for (let i = 0; i < list.length; i++) {
+        list[i].rankInMajor = i + 1;
+      }
+    }
+
+    // 3. Persist to DB
     for (const decision of decisions) {
       await tx.application.update({
         where: { id: decision.applicationId },
@@ -400,6 +444,7 @@ export class VirtualFilterService {
             decision.status === 'admitted'
               ? AdmissionStatus.admitted
               : AdmissionStatus.not_admitted,
+          rankInMajor: decision.rankInMajor,
         },
       });
     }
@@ -474,10 +519,9 @@ export class VirtualFilterService {
         if (!app.calculatedScore || Number(app.calculatedScore) === 0) {
           // Check if it's basic or quota eligibility issue
           rejectionReason = 'not_eligible_basic';
-        } else if (app.rankInMajor === null) {
-          rejectionReason = 'not_eligible_quota';
         } else {
-          // Has score and rank but not admitted - either below cutoff or admitted elsewhere
+          // Has score. Check reason priority.
+          // 1. Check if admitted to higher priority first
           const admittedApp = applications.find(
             a => a.studentId === app.studentId &&
               a.admissionStatus === AdmissionStatus.admitted
@@ -485,7 +529,12 @@ export class VirtualFilterService {
 
           if (admittedApp && admittedApp.preferencePriority < app.preferencePriority) {
             rejectionReason = 'admitted_higher_priority';
+          } else if (app.rankInMajor === null) {
+            // If not admitted higher, and rank is null -> must be ineligible (quota or basic)
+            // Note: score > 0 checked above, so this is quota/floor failure or just unranked
+            rejectionReason = 'not_eligible_quota';
           } else {
+            // Has rank, but not admitted -> Below cutoff
             rejectionReason = 'below_quota_cutoff';
           }
         }
