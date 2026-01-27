@@ -106,7 +106,7 @@ model Post {
   featuredImage String?
   author        User?       @relation(fields: [authorId], references: [id])
   category      Category?   @relation(fields: [categoryId], references: [id])
-  embedding     Unsupported("vector(768)")?
+// embedding     Unsupported("vector(768)")?
   chunks        PostChunk[]
 
   @@map("posts")
@@ -117,7 +117,7 @@ model PostChunk {
   postId    String
   content   String
   chunkIndex Int
-  embedding Unsupported("vector(768)")?
+// embedding Unsupported("vector(768)")?
   createdAt DateTime                    @default(now())
   post      Post                        @relation(fields: [postId], references: [id], onDelete: Cascade)
 
@@ -166,6 +166,18 @@ model Major {
   @@map("majors")
 }
 
+model AdmissionFormula {
+  id          String         @id @default(uuid())
+  name        String
+  formula     String         // e.g. "math * 2 + physics + chemistry + priorityPoints"
+  description String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  quotas      SessionQuota[]
+
+  @@map("admission_formulas")
+}
+
 model AdmissionSession {
   id           String         @id @default(uuid())
   name         String
@@ -186,15 +198,16 @@ model SessionQuota {
   id              String           @id @default(uuid())
   sessionId       String
   majorId         String
-  admissionMethod String
+  formulaId       String?
   quota           Int
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   conditions      Json?
   major           Major            @relation(fields: [majorId], references: [id], onDelete: Cascade)
   session         AdmissionSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  formula         AdmissionFormula? @relation(fields: [formulaId], references: [id], onDelete: SetNull)
 
-  @@unique([sessionId, majorId, admissionMethod])
+  @@unique([sessionId, majorId])
   @@map("session_quotas")
 }
 

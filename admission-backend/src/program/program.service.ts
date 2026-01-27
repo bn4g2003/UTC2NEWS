@@ -229,19 +229,20 @@ export class ProgramService {
         data: {
           sessionId: data.sessionId,
           majorId: data.majorId,
-          admissionMethod: data.admissionMethod,
+          formulaId: data.formulaId,
           quota: data.quota,
           conditions: data.conditions as any,
         },
         include: {
           session: true,
           major: true,
+          formula: true,
         },
       });
     } catch (error) {
       if (error.code === 'P2002') {
         throw new ConflictException(
-          'Quota for this session, major, and admission method already exists',
+          'Quota for this session and major already exists',
         );
       }
       if (error.code === 'P2003') {
@@ -260,6 +261,7 @@ export class ProgramService {
       include: {
         session: true,
         major: true,
+        formula: true,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -271,6 +273,7 @@ export class ProgramService {
       include: {
         session: true,
         major: true,
+        formula: true,
       },
     });
 
@@ -299,6 +302,7 @@ export class ProgramService {
         include: {
           session: true,
           major: true,
+          formula: true,
         },
       });
     } catch (error) {

@@ -71,28 +71,6 @@ export class VirtualFilterService {
   }
 
   /**
-   * Map block codes to admission methods
-   * A00, A01, B00, C00 -> entrance_exam (thi đầu vào)
-   * D01, D07, D08, D09, D10 -> high_school_transcript (xét học bạ)
-   */
-  private mapBlockToAdmissionMethod(block: string): string {
-    const blockUpper = block.toUpperCase();
-    
-    // Blocks for entrance exam (mainly science/math blocks)
-    if (['A00', 'A01', 'B00', 'C00'].includes(blockUpper)) {
-      return 'entrance_exam';
-    }
-    
-    // Blocks for high school transcript (mainly include literature)
-    if (['D01', 'D07', 'D08', 'D09', 'D10'].includes(blockUpper)) {
-      return 'high_school_transcript';
-    }
-    
-    // Default to entrance_exam
-    return 'entrance_exam';
-  }
-
-  /**
    * Calculate scores for all applications in a session
    * @param sessionId - The admission session ID
    * @param tx - Prisma transaction client
@@ -116,11 +94,10 @@ export class VirtualFilterService {
       throw new NotFoundException(`Admission session ${sessionId} not found`);
     }
 
-    // Create quota map for quick lookup: majorId-admissionMethod -> quota
+    // Create quota map for quick lookup: majorId -> quota
     const quotaMap = new Map<string, any>();
     for (const quota of session.quotas) {
-      const key = `${quota.majorId}-${quota.admissionMethod}`;
-      quotaMap.set(key, quota);
+      quotaMap.set(quota.majorId, quota);
     }
 
     // Get all applications for this session
@@ -139,53 +116,49 @@ export class VirtualFilterService {
       >;
       const priorityPoints = Number(application.student.priorityPoints);
 
-      // Determine the actual admission method for quota lookup
-      // If admissionMethod is a block code (A00, D01, etc.), map it to the actual method
-      let actualMethod = application.admissionMethod;
-      
-      // Check if it's a block code (starts with letter followed by digits)
-      if (/^[A-Z]\d{2}$/i.test(actualMethod)) {
-        actualMethod = this.mapBlockToAdmissionMethod(actualMethod);
-      }
-      
-      const quotaKey = `${application.majorId}-${actualMethod}`;
-      const quota = quotaMap.get(quotaKey);
+      const quota = quotaMap.get(application.majorId);
       const conditions = quota?.conditions as any;
+      const formulaId = quota?.formulaId;
 
-      // Check basic eligibility (has required subjects)
-      const isBasicEligible = this.scoreCalculationService.isEligible(
+      if (!formulaId) {
+        // If no formula defined for this major in this session, we can't calculate score
+        rejectionReasons.set(application.id, 'not_eligible_basic');
+        continue;
+      }
+
+      // Check quota-specific conditions (min scores, required subjects)
+      let isEligible = this.scoreCalculationService.isEligibleForQuota(
         subjectScores,
-        application.admissionMethod,
+        conditions,
       );
 
-      // Check quota-specific conditions
-      const isQuotaEligible = conditions
-        ? this.scoreCalculationService.isEligibleForQuota(
-          subjectScores,
-          conditions,
-          application.admissionMethod,
-        )
-        : true;
-
-      const isEligible = isBasicEligible && isQuotaEligible;
-
       // Track rejection reason
-      if (!isBasicEligible) {
-        rejectionReasons.set(application.id, 'not_eligible_basic');
-      } else if (!isQuotaEligible) {
+      if (!isEligible) {
         rejectionReasons.set(application.id, 'not_eligible_quota');
       }
 
-      // Calculate score with conditions
-      const calculatedScore = isEligible
-        ? this.scoreCalculationService.calculateScore(
+      // Calculate score with dynamic formula
+      let calculatedScore = isEligible
+        ? await this.scoreCalculationService.calculateDynamicScore(
           subjectScores,
           priorityPoints,
-          application.admissionMethod,
-          undefined,
-          conditions,
+          formulaId,
         )
         : 0;
+
+      // Check minTotalScore (Điểm sàn) condition
+      if (isEligible && conditions?.minTotalScore) {
+        if (calculatedScore < conditions.minTotalScore) {
+          console.log(`[Filter Debug] App ${application.id}: Score ${calculatedScore} < MinTotalScore ${conditions.minTotalScore}. Result: FAILED (Below Floor)`);
+          isEligible = false;
+          rejectionReasons.set(application.id, 'not_eligible_quota');
+          // calculatedScore = 0; // Commented out to see the actual score in DB/Results for debugging
+        } else {
+          console.log(`[Filter Debug] App ${application.id}: Score ${calculatedScore} >= MinTotalScore ${conditions.minTotalScore}. Result: PASSED Floor`);
+        }
+      } else {
+        if (isEligible) console.log(`[Filter Debug] App ${application.id}: Score ${calculatedScore}. PASSED (No Floor Check)`);
+      }
 
       // Update application with calculated score
       await tx.application.update({
@@ -225,32 +198,20 @@ export class VirtualFilterService {
       },
       orderBy: [
         { majorId: 'asc' },
-        { admissionMethod: 'asc' },
         { calculatedScore: 'desc' },
       ],
     });
 
-    // Group by major and admission method, then assign ranks
+    // Group by major and assign ranks
     const rankedApplications: RankedApplication[] = [];
     let currentMajor = '';
-    let currentMethod = '';
     let currentRank = 0;
 
     for (const app of applications) {
-      // Map block code to actual admission method for grouping
-      let baseMethod = app.admissionMethod;
-      if (/^[A-Z]\d{2}$/i.test(baseMethod)) {
-        baseMethod = this.mapBlockToAdmissionMethod(baseMethod);
-      }
-      
-      const majorMethodKey = `${app.majorId}-${baseMethod}`;
-      const prevKey = `${currentMajor}-${currentMethod}`;
-
-      // Reset rank when we move to a new major-method combination
-      if (majorMethodKey !== prevKey) {
+      // Reset rank when we move to a new major
+      if (app.majorId !== currentMajor) {
         currentRank = 1;
         currentMajor = app.majorId;
-        currentMethod = baseMethod;
       } else {
         currentRank++;
       }
@@ -259,7 +220,7 @@ export class VirtualFilterService {
         applicationId: app.id,
         studentId: app.studentId,
         majorId: app.majorId,
-        admissionMethod: baseMethod, // Store normalized method for decision logic
+        admissionMethod: app.admissionMethod,
         priority: app.preferencePriority,
         calculatedScore: Number(app.calculatedScore),
         rank: currentRank,
@@ -277,20 +238,6 @@ export class VirtualFilterService {
 
   /**
    * Process preferences in priority order and make admission decisions
-   * @param sessionId - The admission session ID
-   * @param rankedApps - Array of ranked applications
-   * @param tx - Prisma transaction client
-   * @returns Array of admission decisions
-   */
-  /**
-   * Process preferences using Score-Priority (Stable Matching) logic.
-   * Ensures that within each major/method, students are admitted based on score regardless of preference priority,
-   * while ensuring they only take a spot in their highest possible priority major.
-   * @param sessionId - The admission session ID
-   * @param rankedApps - Array of ranked applications
-   * @param eligibilityReasons - Map of applicationId -> rejection reason for ineligible apps
-   * @param tx - Prisma transaction client
-   * @returns Array of admission decisions with detailed rejection reasons
    */
   async processPreferences(
     sessionId: string,
@@ -305,11 +252,10 @@ export class VirtualFilterService {
 
     const quotaMap = new Map<string, number>();
     for (const quota of quotas) {
-      const key = `${quota.majorId}-${quota.admissionMethod}`;
-      quotaMap.set(key, quota.quota);
+      quotaMap.set(quota.majorId, quota.quota);
     }
 
-    // 2. Get all applications (including ineligible ones) to return complete results
+    // 2. Get all applications to return complete results
     const allApplications = await tx.application.findMany({
       where: { sessionId },
       include: {
@@ -321,53 +267,40 @@ export class VirtualFilterService {
     const appMap = new Map(allApplications.map(app => [app.id, app]));
 
     // 3. Track rejection status for each application
-    // activeApps starts with all ranked applications (eligible ones)
     let activeApps = rankedApps.map(app => ({ ...app, isRejected: false }));
     let changed = true;
 
-    // 4. Iterative Stable Matching (Gale-Shapley style)
-    // In each round, students "propose" to their highest priority non-rejected application
+    // 4. Iterative Stable Matching
     while (changed) {
       changed = false;
-
-      // Map to track who is currently applying to which major
-      // Key: MajorKey, Value: List of Applications
       const majorProposals = new Map<string, typeof activeApps>();
+      const studentBestApp = new Map<string, number>();
 
-      // Each student "proposes" to their highest priority application that hasn't rejected them
-      const studentBestApp = new Map<string, number>(); // studentId -> priority
-
-      // Identify the current "best" active application for each student
       for (const app of activeApps) {
         if (app.isRejected) continue;
-
         const currentBest = studentBestApp.get(app.studentId);
         if (currentBest === undefined || app.priority < currentBest) {
           studentBestApp.set(app.studentId, app.priority);
         }
       }
 
-      // Group proposals by major
       for (const app of activeApps) {
         if (app.isRejected) continue;
         const bestPriority = studentBestApp.get(app.studentId);
         if (bestPriority !== undefined && app.priority === bestPriority) {
-          const key = `${app.majorId}-${app.admissionMethod}`;
-          let majorQueue = majorProposals.get(key);
+          let majorQueue = majorProposals.get(app.majorId);
           if (!majorQueue) {
             majorQueue = [];
-            majorProposals.set(key, majorQueue);
+            majorProposals.set(app.majorId, majorQueue);
           }
           majorQueue.push(app);
         }
       }
 
-      // Each major rejects those beyond its quota
-      for (const [majorKey, proposals] of majorProposals.entries()) {
-        const quota = quotaMap.get(majorKey) || 0;
+      for (const [majorId, proposals] of majorProposals.entries()) {
+        const quota = quotaMap.get(majorId) || 0;
 
         if (proposals.length > quota) {
-          // Sort proposals by score DESC, then studentId ASC (tie-breaker)
           proposals.sort((a, b) => {
             if (b.calculatedScore !== a.calculatedScore) {
               return b.calculatedScore - a.calculatedScore;
@@ -375,7 +308,6 @@ export class VirtualFilterService {
             return a.studentId.localeCompare(b.studentId);
           });
 
-          // Reject those beyond quota
           for (let i = quota; i < proposals.length; i++) {
             const rejectedApp = proposals[i];
             const appToMark = activeApps.find(a => a.applicationId === rejectedApp.applicationId);
@@ -388,10 +320,8 @@ export class VirtualFilterService {
       }
     }
 
-    // 5. Final decisions based on stable state
+    // 5. Final decisions
     const decisions: AdmissionDecision[] = [];
-
-    // Create a map of a student's best non-rejected priority for quick lookup
     const studentFinalBest = new Map<string, number>();
     for (const app of activeApps) {
       if (!app.isRejected) {
@@ -402,45 +332,34 @@ export class VirtualFilterService {
       }
     }
 
-    // 6. Process ALL applications (including ineligible ones)
     for (const application of allApplications) {
       const app = appMap.get(application.id);
       if (!app) continue;
 
-      // Check if this app was in the eligible/ranked list
       const rankedApp = activeApps.find(a => a.applicationId === application.id);
-      
+
       let status: 'admitted' | 'not_admitted' = 'not_admitted';
       let rejectionReason: RejectionReason = null;
       let admittedPreference: number | null = null;
 
-      // Case 1: Not eligible (not in ranked apps)
       if (!rankedApp) {
         status = 'not_admitted';
         rejectionReason = eligibilityReasons.get(application.id) || 'not_eligible_basic';
-      } 
-      // Case 2: Eligible but rejected during matching
-      else if (rankedApp.isRejected) {
+      } else if (rankedApp.isRejected) {
         status = 'not_admitted';
         const bestPriority = studentFinalBest.get(rankedApp.studentId);
-        
-        // If student has a better priority admitted, this is lower priority
         if (bestPriority !== undefined && rankedApp.priority > bestPriority) {
           rejectionReason = 'admitted_higher_priority';
         } else {
-          // Otherwise, didn't make the quota cutoff
           rejectionReason = 'below_quota_cutoff';
         }
-      }
-      // Case 3: Admitted
-      else {
+      } else {
         const bestPriority = studentFinalBest.get(rankedApp.studentId);
         if (bestPriority !== undefined && rankedApp.priority === bestPriority) {
           status = 'admitted';
           admittedPreference = rankedApp.priority;
           rejectionReason = null;
         } else {
-          // This shouldn't happen, but handle it
           status = 'not_admitted';
           rejectionReason = 'admitted_higher_priority';
         }
@@ -547,10 +466,10 @@ export class VirtualFilterService {
       }
 
       const studentData = studentResults.get(app.studentId);
-      
+
       // Determine rejection reason based on status and score
       let rejectionReason: RejectionReason = null;
-      
+
       if (app.admissionStatus === AdmissionStatus.not_admitted) {
         if (!app.calculatedScore || Number(app.calculatedScore) === 0) {
           // Check if it's basic or quota eligibility issue
@@ -560,10 +479,10 @@ export class VirtualFilterService {
         } else {
           // Has score and rank but not admitted - either below cutoff or admitted elsewhere
           const admittedApp = applications.find(
-            a => a.studentId === app.studentId && 
-            a.admissionStatus === AdmissionStatus.admitted
+            a => a.studentId === app.studentId &&
+              a.admissionStatus === AdmissionStatus.admitted
           );
-          
+
           if (admittedApp && admittedApp.preferencePriority < app.preferencePriority) {
             rejectionReason = 'admitted_higher_priority';
           } else {

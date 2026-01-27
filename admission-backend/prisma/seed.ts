@@ -1,170 +1,286 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, SessionStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Starting database seeding...');
+  console.log('🚀 Bắt đầu quá trình Seeding dữ liệu hệ thống (Tiếng Việt)...');
 
-  // Create default permissions
-  console.log('Creating permissions...');
+  // 1. Tạo các quyền hệ thống (Permissions)
+  console.log('🔑 Đang tạo danh sách quyền hạn...');
   const permissions = [
-    // User Management (10 permissions)
-    { name: 'users:create', description: 'Create new user accounts' },
-    { name: 'users:read', description: 'View user information' },
-    { name: 'users:update', description: 'Update user details' },
-    { name: 'users:delete', description: 'Delete user accounts' },
-    { name: 'users:update_status', description: 'Activate/deactivate users' },
-    { name: 'users:update_password', description: 'Change user passwords' },
-    { name: 'roles:create', description: 'Create new roles' },
-    { name: 'roles:read', description: 'View roles' },
-    { name: 'roles:assign', description: 'Assign roles to users' },
-    { name: 'permissions:read', description: 'View permissions' },
+    // Quản lý người dùng
+    { name: 'users:create', description: 'Tạo tài khoản người dùng mới' },
+    { name: 'users:read', description: 'Xem thông tin người dùng' },
+    { name: 'users:update', description: 'Cập nhật thông tin người dùng' },
+    { name: 'users:delete', description: 'Xóa tài khoản người dùng' },
+    { name: 'users:update_status', description: 'Kích hoạt/Khóa người dùng' },
+    { name: 'users:update_password', description: 'Thay đổi mật khẩu người dùng' },
+    { name: 'roles:create', description: 'Tạo vai trò mới' },
+    { name: 'roles:read', description: 'Xem danh sách vai trò' },
+    { name: 'roles:update', description: 'Cập nhật vai trò' },
+    { name: 'roles:delete', description: 'Xóa vai trò' },
+    { name: 'roles:assign', description: 'Gán vai trò cho người dùng' },
+    { name: 'permissions:read', description: 'Xem danh sách quyền' },
+    { name: 'permissions:assign', description: 'Gán quyền cho vai trò' },
 
-    // Student Management (5 permissions)
-    { name: 'students:create', description: 'Create student records' },
-    { name: 'students:read', description: 'View student information' },
-    { name: 'students:update', description: 'Update student details' },
-    { name: 'students:delete', description: 'Delete student records' },
-    { name: 'preferences:manage', description: 'Manage student major preferences' },
+    // Quản lý sinh viên & Nguyện vọng
+    { name: 'students:create', description: 'Tạo hồ sơ thí sinh' },
+    { name: 'students:read', description: 'Xem thông tin thí sinh' },
+    { name: 'students:update', description: 'Cập nhật hồ sơ thí sinh' },
+    { name: 'students:delete', description: 'Xóa hồ sơ thí sinh' },
+    { name: 'preferences:manage', description: 'Quản lý nguyện vọng của thí sinh' },
 
-    // Program Management (12 permissions)
-    { name: 'majors:create', description: 'Create new majors' },
-    { name: 'majors:read', description: 'View major information' },
-    { name: 'majors:update', description: 'Update major details' },
-    { name: 'majors:delete', description: 'Delete majors' },
-    { name: 'admission_sessions:create', description: 'Create admission sessions' },
-    { name: 'admission_sessions:read', description: 'View admission sessions' },
-    { name: 'admission_sessions:update', description: 'Update admission sessions' },
-    { name: 'admission_sessions:delete', description: 'Delete admission sessions' },
-    { name: 'quotas:create', description: 'Configure admission quotas' },
-    { name: 'quotas:read', description: 'View quota information' },
-    { name: 'quotas:update', description: 'Update quota configurations' },
-    { name: 'quotas:delete', description: 'Delete quota configurations' },
+    // Quản lý Đào tạo & Tuyển sinh
+    { name: 'majors:create', description: 'Tạo ngành học mới' },
+    { name: 'majors:read', description: 'Xem danh sách ngành học' },
+    { name: 'majors:update', description: 'Cập nhật thông tin ngành' },
+    { name: 'majors:delete', description: 'Xóa ngành học' },
+    { name: 'admission_sessions:create', description: 'Tạo đợt tuyển sinh mới' },
+    { name: 'admission_sessions:read', description: 'Xem danh sách đợt tuyển sinh' },
+    { name: 'admission_sessions:update', description: 'Cập nhật đợt tuyển sinh' },
+    { name: 'admission_sessions:delete', description: 'Xóa đợt tuyển sinh' },
+    { name: 'quotas:create', description: 'Cấu hình chỉ tiêu tuyển sinh' },
+    { name: 'quotas:read', description: 'Xem chỉ tiêu & điều kiện' },
+    { name: 'quotas:update', description: 'Cập nhật chỉ tiêu' },
+    { name: 'quotas:delete', description: 'Xóa cấu hình chỉ tiêu' },
+    { name: 'formulas:manage', description: 'Quản lý công thức tính điểm' },
 
-    // Data Operations (4 permissions)
-    { name: 'import:execute', description: 'Import student data from Excel' },
-    { name: 'filter:execute', description: 'Run virtual filtering algorithm' },
-    { name: 'results:read', description: 'View admission results' },
-    { name: 'results:export', description: 'Export admission results' },
+    // Vận hành Dữ liệu
+    { name: 'import:execute', description: 'Thực hiện Import dữ liệu từ Excel' },
+    { name: 'filter:execute', description: 'Chạy thuật toán lọc ảo trúng tuyển' },
+    { name: 'results:read', description: 'Xem kết quả trúng tuyển' },
+    { name: 'results:export', description: 'Xuất kết quả (Excel/PDF)' },
 
-    // Communication (2 permissions)
-    { name: 'emails:send', description: 'Send email notifications' },
-    { name: 'emails:read', description: 'View email delivery status' },
+    // Truyền thông & Thông báo
+    { name: 'emails:send', description: 'Gửi thông báo email' },
+    { name: 'emails:read', description: 'Xem trạng thái gửi email' },
 
-    // Content Management (16 permissions)
-    { name: 'posts:create', description: 'Create blog posts' },
-    { name: 'posts:read', description: 'View posts' },
-    { name: 'posts:update', description: 'Update posts' },
-    { name: 'posts:delete', description: 'Delete posts' },
-    { name: 'posts:publish', description: 'Publish posts' },
-    { name: 'faqs:create', description: 'Create FAQ entries' },
-    { name: 'faqs:read', description: 'View FAQs' },
-    { name: 'faqs:update', description: 'Update FAQs' },
-    { name: 'faqs:delete', description: 'Delete FAQs' },
-    { name: 'categories:create', description: 'Create content categories' },
-    { name: 'categories:read', description: 'View categories' },
-    { name: 'categories:update', description: 'Update categories' },
-    { name: 'categories:delete', description: 'Delete categories' },
-    { name: 'media:upload', description: 'Upload media files' },
-    { name: 'media:read', description: 'View media files' },
-    { name: 'media:delete', description: 'Delete media files' },
+    // Nội dung CMS
+    { name: 'posts:create', description: 'Tạo bài viết mới' },
+    { name: 'posts:read', description: 'Xem bài viết' },
+    { name: 'posts:update', description: 'Cập nhật bài viết' },
+    { name: 'posts:delete', description: 'Xóa bài viết' },
+    { name: 'posts:publish', description: 'Phê duyệt/Xuất bản bài viết' },
+    { name: 'categories:create', description: 'Tạo danh mục nội dung' },
+    { name: 'categories:read', description: 'Xem danh mục' },
+    { name: 'media:upload', description: 'Tải lên tệp tin media' },
 
-    // System Configuration (2 permissions)
-    { name: 'config:read', description: 'View system settings' },
-    { name: 'config:update', description: 'Update system settings' },
-
-    // RBAC Management (3 permissions)
-    { name: 'roles:update', description: 'Update role details' },
-    { name: 'roles:delete', description: 'Delete roles' },
-    { name: 'permissions:assign', description: 'Assign permissions to roles' },
+    // Cấu hình hệ thống
+    { name: 'config:read', description: 'Xem cấu hình hệ thống' },
+    { name: 'config:update', description: 'Cập nhật cấu hình hệ thống' },
   ];
 
-  const createdPermissions: Array<{ id: string; name: string }> = [];
-  for (const permission of permissions) {
+  const createdPermissions: any[] = [];
+  for (const p of permissions) {
     const created = await prisma.permission.upsert({
-      where: { name: permission.name },
-      update: {},
-      create: permission,
+      where: { name: p.name },
+      update: { description: p.description },
+      create: p,
     });
     createdPermissions.push(created);
   }
-  console.log(`Created ${createdPermissions.length} permissions`);
+  console.log(`✅ Đã nạp ${createdPermissions.length} quyền.`);
 
-  // Create admin role with all permissions
-  console.log('Creating admin role...');
+  // 2. Tạo vai trò Admin
+  console.log('👥 Đang tạo vai trò Quản trị viên...');
   const adminRole = await prisma.role.upsert({
     where: { name: 'admin' },
-    update: {},
+    update: { description: 'Quản trị viên toàn quyền hệ thống' },
     create: {
       name: 'admin',
-      description: 'Administrator with full system access',
+      description: 'Quản trị viên toàn quyền hệ thống',
     },
   });
 
-  // Assign all permissions to admin role
-  console.log('Assigning permissions to admin role...');
-  for (const permission of createdPermissions) {
+  // Gán tất cả quyền cho Admin
+  for (const p of createdPermissions) {
     await prisma.rolePermission.upsert({
-      where: {
-        roleId_permissionId: {
-          roleId: adminRole.id,
-          permissionId: permission.id,
-        },
-      },
+      where: { roleId_permissionId: { roleId: adminRole.id, permissionId: p.id } },
       update: {},
-      create: {
-        roleId: adminRole.id,
-        permissionId: permission.id,
-      },
+      create: { roleId: adminRole.id, permissionId: p.id },
     });
   }
-  console.log(`Assigned ${createdPermissions.length} permissions to admin role`);
+  console.log('✅ Đã gán toàn quyền cho vai trò Admin.');
 
-  // Create initial admin user
-  console.log('Creating admin user...');
+  // 3. Tạo tài khoản Admin mặc định
+  console.log('👤 Đang tạo tài khoản Admin...');
   const adminPassword = process.env.ADMIN_PASSWORD || 'admin123456';
   const hashedPassword = await bcrypt.hash(adminPassword, 10);
 
   const adminUser = await prisma.user.upsert({
     where: { username: 'admin' },
-    update: {},
+    update: { fullName: 'Quản trị viên Hệ thống' },
     create: {
       username: 'admin',
       email: 'admin@admission.edu.vn',
-      fullName: 'System Administrator',
+      fullName: 'Quản trị viên Hệ thống',
       passwordHash: hashedPassword,
       isActive: true,
     },
   });
-  console.log(`Created admin user: ${adminUser.username}`);
 
-  // Assign admin role to admin user
-  console.log('Assigning admin role to admin user...');
   await prisma.userRole.upsert({
-    where: {
-      userId_roleId: {
-        userId: adminUser.id,
-        roleId: adminRole.id,
-      },
-    },
+    where: { userId_roleId: { userId: adminUser.id, roleId: adminRole.id } },
     update: {},
-    create: {
-      userId: adminUser.id,
-      roleId: adminRole.id,
+    create: { userId: adminUser.id, roleId: adminRole.id },
+  });
+  console.log(`✅ Admin User: admin / ${adminPassword}`);
+
+  // 4. Tạo Ngành học thực tế
+  console.log('🎓 Đang tạo danh sách ngành học...');
+  const majorsData = [
+    { code: '7480201', name: 'Công nghệ thông tin', description: 'Ngành học về phần mềm, mạng máy tính và bảo mật' },
+    { code: '7480101', name: 'Khoa học máy tính', description: 'Tập trung vào thuật toán và trí tuệ nhân tạo' },
+    { code: '7520103', name: 'Kỹ thuật cơ khí', description: 'Thiết kế và vận hành các hệ thống máy móc' },
+    { code: '7520201', name: 'Kỹ thuật điện', description: 'Kỹ thuật điện và năng lượng tái tạo' },
+    { code: '7340101', name: 'Quản trị kinh doanh', description: 'Quản lý doanh nghiệp và khởi nghiệp' },
+  ];
+
+  const majors: any[] = [];
+  for (const m of majorsData) {
+    const created = await prisma.major.upsert({
+      where: { code: m.code },
+      update: { name: m.name, description: m.description },
+      create: { ...m, subjectCombinations: JSON.stringify(['A00', 'A01', 'D01']) },
+    });
+    majors.push(created);
+  }
+  console.log(`✅ Đã nạp ${majors.length} ngành học.`);
+
+  // 5. Tạo Công thức tính điểm
+  console.log('🧪 Đang tạo công thức tính điểm...');
+  const formulasData = [
+    {
+      name: 'Toán nhân đôi (Khối A00)',
+      formula: 'math * 2 + physics + chemistry + priorityPoints',
+      description: 'Dành cho các ngành kỹ thuật: Toánx2 + Lý + Hóa + Điểm ưu tiên',
+    },
+    {
+      name: 'Lấy cao nhất giữa các khối (A, D)',
+      formula: 'max(math+physics+chemistry, math+literature+english) + priorityPoints',
+      description: 'Lấy tổng điểm cao nhất giữa tổ hợp A00 và D01',
+    },
+    {
+      name: 'Trung bình 3 môn',
+      formula: '(math + physics + english) / 3 + priorityPoints',
+      description: 'Lấy điểm trung bình cộng 3 môn',
+    },
+  ];
+
+  const formulas: any[] = [];
+  for (const f of formulasData) {
+    const created = await prisma.admissionFormula.create({ data: f });
+    formulas.push(created);
+  }
+  console.log(`✅ Đã nạp ${formulas.length} công thức.`);
+
+  // 6. Tạo Đợt tuyển sinh
+  console.log('📅 Đang tạo đợt tuyển sinh...');
+  const currentYear = new Date().getFullYear();
+  const session = await prisma.admissionSession.create({
+    data: {
+      name: `Tuyển sinh Khóa ${currentYear} - Đợt 1`,
+      year: currentYear,
+      startDate: new Date(),
+      endDate: new Date(new Date().setMonth(new Date().getMonth() + 3)),
+      status: SessionStatus.active,
     },
   });
-  console.log('Admin role assigned to admin user');
+  console.log(`✅ Đợt tuyển sinh: ${session.name}`);
 
-  console.log('\n=== Database seeding completed successfully ===');
-  console.log(`Admin username: admin`);
-  console.log(`Admin password: ${adminPassword}`);
-  console.log(`Admin email: ${adminUser.email}`);
+  // 7. Tạo Chỉ tiêu (Quotas) & ĐIỀU KIỆN
+  console.log('📊 Đang cấu hình chỉ tiêu tuyển sinh...');
+  for (const major of majors) {
+    await prisma.sessionQuota.create({
+      data: {
+        sessionId: session.id,
+        majorId: major.id,
+        formulaId: formulas[1].id, // Mặc định lấy cao nhất các khối
+        quota: major.code === '7480201' ? 100 : 50, // CNTT lấy 100, ngành khác 50
+        conditions: {
+          minTotalScore: 18.0,
+          minSubjectScores: { math: 5.0 },
+          requiredSubjects: ['math'],
+          subjectCombinations: [['math', 'physics', 'chemistry'], ['math', 'literature', 'english']]
+        },
+      },
+    });
+  }
+  console.log('✅ Đã cấu hình chỉ tiêu cho tất cả các ngành.');
+
+  // 8. Tạo Thí sinh mẫu
+  console.log('👨‍🎓 Đang tạo hồ sơ thí sinh mẫu...');
+  const studentsData = [
+    { fullName: 'Nguyễn Văn Nam', idCard: '079102345678', points: 0.5 },
+    { fullName: 'Trần Thị Thu Thảo', idCard: '079102345679', points: 0.0 },
+    { fullName: 'Lê Hoàng Long', idCard: '079102345680', points: 1.5 },
+    { fullName: 'Phạm Minh Đức', idCard: '079102345681', points: 0.0 },
+    { fullName: 'Vũ Hải Yến', idCard: '079102345682', points: 0.75 },
+  ];
+
+  const students: any[] = [];
+  for (const s of studentsData) {
+    const created = await prisma.student.create({
+      data: {
+        idCard: s.idCard,
+        fullName: s.fullName,
+        email: `${s.idCard}@student.edu.vn`,
+        dateOfBirth: new Date('2006-01-01'), // Thí sinh thường 18 tuổi
+        priorityPoints: s.points,
+        sessionId: session.id,
+        scores: {
+          math: 8.0 + Math.random() * 2,
+          physics: 7.0 + Math.random() * 2,
+          chemistry: 6.0 + Math.random() * 2,
+          literature: 7.0 + Math.random() * 2,
+          english: 8.5,
+        },
+      },
+    });
+    students.push(created);
+  }
+
+  // 9. Tạo Nguyện vọng (Preferences)
+  console.log('📝 Đang tạo nguyện vọng cho thí sinh...');
+  for (const student of students) {
+    // Mỗi em 2 nguyện vọng
+    await prisma.application.create({
+      data: {
+        studentId: student.id,
+        sessionId: session.id,
+        majorId: majors[0].id, // CNTT
+        admissionMethod: 'A00',
+        preferencePriority: 1,
+        subjectScores: student.scores,
+        admissionStatus: 'pending',
+      },
+    });
+
+    await prisma.application.create({
+      data: {
+        studentId: student.id,
+        sessionId: session.id,
+        majorId: majors[1].id, // KHMT
+        admissionMethod: 'D01',
+        preferencePriority: 2,
+        subjectScores: student.scores,
+        admissionStatus: 'pending',
+      },
+    });
+  }
+
+  console.log('\n✨ QUÁ TRÌNH SEEDING HOÀN TẤT THÀNH CÔNG! ✨');
+  console.log('------------------------------------------------');
+  console.log('Thông tin quản trị:');
+  console.log(`- Tài khoản: admin`);
+  console.log(`- Mật khẩu : ${adminPassword}`);
+  console.log('------------------------------------------------');
 }
 
 main()
   .catch((e) => {
-    console.error('Error during seeding:', e);
+    console.error('❌ Lỗi Seeding:', e);
     process.exit(1);
   })
   .finally(async () => {

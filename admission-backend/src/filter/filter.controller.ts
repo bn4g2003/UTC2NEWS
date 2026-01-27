@@ -20,7 +20,7 @@ import { FilterResult } from './dto/filter-result.dto';
 @Controller('sessions')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class FilterController {
-  constructor(private readonly virtualFilterService: VirtualFilterService) {}
+  constructor(private readonly virtualFilterService: VirtualFilterService) { }
 
   /**
    * Run the virtual filter algorithm for an admission session
@@ -29,13 +29,13 @@ export class FilterController {
   @Post(':id/run-filter')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions('filter:execute')
-  @ApiOperation({ 
-    summary: 'Run virtual filter algorithm', 
-    description: 'Execute the virtual filtering algorithm for an admission session. Processes applications by preference priority and score ranking, enforces quotas, and generates final admission decisions. The operation is idempotent and atomic.' 
+  @ApiOperation({
+    summary: 'Run virtual filter algorithm',
+    description: 'Execute the virtual filtering algorithm for an admission session. Processes applications by preference priority and score ranking, enforces quotas, and generates final admission decisions. The operation is idempotent and atomic.'
   })
   @ApiParam({ name: 'id', description: 'Admission session ID' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Filter executed successfully',
     schema: {
       properties: {
@@ -58,14 +58,14 @@ export class FilterController {
    */
   @Get(':id/filter-results')
   @RequirePermissions('filter:execute')
-  @ApiOperation({ 
-    summary: 'Get detailed filter results', 
-    description: 'Retrieve detailed admission decisions for all applications in a session, including rejection reasons for each preference.' 
+  @ApiOperation({
+    summary: 'Get detailed filter results',
+    description: 'Retrieve detailed admission decisions for all applications in a session, including rejection reasons for each preference.'
   })
   @ApiParam({ name: 'id', description: 'Admission session ID' })
   @ApiQuery({ name: 'studentId', required: false, description: 'Filter by specific student ID' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Filter results retrieved successfully'
   })
   @ApiResponse({ status: 403, description: 'Forbidden - requires filter:execute permission' })

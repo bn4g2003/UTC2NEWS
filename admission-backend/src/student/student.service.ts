@@ -257,16 +257,30 @@ export class StudentService {
     }
 
     // Create application
-    const isEligible = this.scoreCalculationService.isEligible(
+    // Find quota to get formula
+    const quota = await this.prisma.sessionQuota.findUnique({
+      where: {
+        sessionId_majorId: {
+          sessionId: addPreferenceDto.sessionId,
+          majorId: major.id,
+        },
+      },
+      include: { formula: true },
+    });
+
+    const formulaId = quota?.formulaId;
+    const conditions = quota?.conditions as any;
+
+    const isEligible = this.scoreCalculationService.isEligibleForQuota(
       addPreferenceDto.subjectScores,
-      addPreferenceDto.admissionMethod,
+      conditions,
     );
 
-    const calculatedScore = isEligible
-      ? this.scoreCalculationService.calculateScore(
+    const calculatedScore = isEligible && formulaId
+      ? await this.scoreCalculationService.calculateDynamicScore(
         addPreferenceDto.subjectScores,
         Number(student.priorityPoints),
-        addPreferenceDto.admissionMethod,
+        formulaId,
       )
       : null;
 
@@ -275,7 +289,7 @@ export class StudentService {
         studentId: studentId,
         sessionId: addPreferenceDto.sessionId,
         majorId: major.id,
-        admissionMethod: addPreferenceDto.admissionMethod,
+        admissionMethod: addPreferenceDto.admissionMethod || 'dynamic',
         preferencePriority: addPreferenceDto.preferencePriority,
         subjectScores: addPreferenceDto.subjectScores,
         calculatedScore: calculatedScore,
@@ -357,10 +371,10 @@ export class StudentService {
     if (updatePreferenceDto.subjectScores)
       updateData.subjectScores = updatePreferenceDto.subjectScores;
 
-    // Recalculate score if subject scores or admission method changed
+    // Recalculate score if subject scores or major changed
     if (
       updatePreferenceDto.subjectScores ||
-      updatePreferenceDto.admissionMethod
+      majorId !== application.majorId
     ) {
       const student = await this.prisma.student.findUnique({
         where: { id: studentId },
@@ -372,19 +386,31 @@ export class StudentService {
 
       const finalScores =
         updatePreferenceDto.subjectScores || (application.subjectScores as any);
-      const finalMethod =
-        updatePreferenceDto.admissionMethod || application.admissionMethod;
 
-      const isEligible = this.scoreCalculationService.isEligible(
+      // Find quota for major
+      const quota = await this.prisma.sessionQuota.findUnique({
+        where: {
+          sessionId_majorId: {
+            sessionId: application.sessionId,
+            majorId: majorId,
+          },
+        },
+        include: { formula: true },
+      });
+
+      const formulaId = quota?.formulaId;
+      const conditions = quota?.conditions as any;
+
+      const isEligible = this.scoreCalculationService.isEligibleForQuota(
         finalScores,
-        finalMethod,
+        conditions,
       );
 
-      updateData.calculatedScore = isEligible
-        ? this.scoreCalculationService.calculateScore(
+      updateData.calculatedScore = isEligible && formulaId
+        ? await this.scoreCalculationService.calculateDynamicScore(
           finalScores,
           Number(student.priorityPoints),
-          finalMethod,
+          formulaId,
         )
         : null;
 

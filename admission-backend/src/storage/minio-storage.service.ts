@@ -22,24 +22,39 @@ export class MinioStorageService implements OnModuleInit {
       port: parseInt(process.env.MINIO_PORT || '9000', 10),
       useSSL: process.env.MINIO_USE_SSL === 'true',
       accessKey: process.env.MINIO_ACCESS_KEY || 'minioadmin',
-      secretKey: process.env.MINIO_SECRET_KEY || 'minioadmin',
+      secretKey: process.env.MINIO_SECRET_KEY || 'minioadmin123',
     });
   }
 
   async onModuleInit() {
-    try {
-      const bucketExists = await this.minioClient.bucketExists(this.bucketName);
-      if (!bucketExists) {
-        await this.minioClient.makeBucket(this.bucketName, 'us-east-1');
-        this.logger.log(`Bucket ${this.bucketName} created successfully`);
-      } else {
-        this.logger.log(`Bucket ${this.bucketName} already exists`);
+    const maxRetries = 3;
+    let delay = 2000;
+
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        const endpoint = process.env.MINIO_ENDPOINT || 'localhost';
+        const port = process.env.MINIO_PORT || '9000';
+        this.logger.log(`Connecting to MinIO at ${endpoint}:${port} (Attempt ${i + 1}/${maxRetries})...`);
+
+        const bucketExists = await this.minioClient.bucketExists(this.bucketName);
+        if (!bucketExists) {
+          await this.minioClient.makeBucket(this.bucketName, 'us-east-1');
+          this.logger.log(`Bucket ${this.bucketName} created successfully`);
+        } else {
+          this.logger.log(`Bucket ${this.bucketName} already exists`);
+        }
+        this.logger.log(`MinIO storage initialized successfully (${endpoint}:${port})`);
+        return; // Success, exit the loop
+      } catch (error) {
+        this.logger.error(`Error initializing MinIO bucket (Attempt ${i + 1}/${maxRetries}): ${error.message || 'Unknown error'}`);
+        if (i === maxRetries - 1) {
+          this.logger.error(error);
+          this.logger.warn('MinIO storage will not be available. Please check your MinIO configuration and credentials.');
+        } else {
+          this.logger.log(`Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
       }
-    } catch (error) {
-      this.logger.error(`Error initializing MinIO bucket: ${error.message}`);
-      this.logger.warn('MinIO storage will not be available. Please check your MinIO configuration and credentials.');
-      // Don't throw error to prevent app from crashing
-      // The app can still run without MinIO, but file uploads will fail
     }
   }
 

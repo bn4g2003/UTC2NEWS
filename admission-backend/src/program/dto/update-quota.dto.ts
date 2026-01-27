@@ -23,4 +23,11 @@ export class UpdateQuotaDto {
   @ValidateNested()
   @Type(() => QuotaConditionsDto)
   conditions?: QuotaConditionsDto;
+
+  @ApiPropertyOptional({
+    description: 'Formula ID for this quota',
+    example: 'uuid-formula-id',
+  })
+  @IsOptional()
+  formulaId?: string;
 }

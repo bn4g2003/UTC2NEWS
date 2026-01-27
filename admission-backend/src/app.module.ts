@@ -16,6 +16,7 @@ import { ConfigModule } from './config/config.module';
 import { CommunicationModule } from './communication/communication.module';
 import { VideoCallModule } from './video-call/video-call.module';
 import { JiraModule } from './jira/jira.module';
+import { FormulaModule } from './formula/formula.module';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
 
 @Module({
@@ -35,6 +36,7 @@ import { LoggerMiddleware } from './common/middleware/logger.middleware';
     CommunicationModule,
     VideoCallModule,
     JiraModule,
+    FormulaModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -154,9 +154,17 @@ export class ImportService {
       return { totalRecords, successCount: 0, failureCount: totalRecords, errors: allErrors };
     }
 
+    // Step 3: Fetch quotas for caching
+    const quotas = await this.prisma.sessionQuota.findMany({
+      where: { sessionId },
+      include: { formula: true },
+    });
+    const quotaMap = new Map<string, any>();
+    for (const q of quotas) quotaMap.set(q.majorId, q);
+
     console.log(`ImportService: Starting import of ${validPreferences.length} valid preferences for session ${sessionId}`);
 
-    // Step 3: Database import
+    // Step 4: Database import
     try {
       await this.prisma.$transaction(async (tx) => {
         for (const pref of validPreferences) {
@@ -177,6 +185,10 @@ export class ImportService {
             throw new Error(`Không tìm thấy mã ngành: ${pref.majorCode}`);
           }
 
+          const quota = quotaMap.get(major.id);
+          const formulaId = quota?.formulaId;
+          const conditions = quota?.conditions as any;
+
           // Get subject scores based on block
           const blockSubjects = pref.block ? this.getSubjectsForBlock(pref.block) : null;
           const subjectScores: any = {};
@@ -190,26 +202,19 @@ export class ImportService {
             });
           }
 
-          // Calculate score if method is provided or student has scores
-          const isEligible = this.scoreCalculationService.isEligible(
+          // Check eligibility based on quota conditions
+          const isEligible = this.scoreCalculationService.isEligibleForQuota(
             subjectScores,
-            'entrance_exam', // Always use entrance_exam as method
-            pref.block
+            conditions,
           );
 
-          const calculatedScore = isEligible
-            ? this.scoreCalculationService.calculateScore(
+          const calculatedScore = isEligible && formulaId
+            ? await this.scoreCalculationService.calculateDynamicScore(
               subjectScores,
               Number(student.priorityPoints),
-              'entrance_exam', // Always use entrance_exam as method
-              pref.block
+              formulaId,
             )
             : null;
-
-          // Store as Method|Block to preserve both
-          const combinedMethod = pref.block
-            ? `${pref.admissionMethod || 'entrance_exam'}|${pref.block}`
-            : (pref.admissionMethod || 'entrance_exam');
 
           await tx.application.upsert({
             where: {
@@ -220,8 +225,8 @@ export class ImportService {
               },
             },
             update: {
-              majorId: major!.id,
-              admissionMethod: combinedMethod,
+              majorId: major.id,
+              admissionMethod: pref.block || pref.admissionMethod || 'dynamic',
               subjectScores: subjectScores,
               calculatedScore: calculatedScore,
               admissionStatus: isEligible ? 'pending' : 'not_admitted',
@@ -229,8 +234,8 @@ export class ImportService {
             create: {
               studentId: student.id,
               sessionId: sessionId,
-              majorId: major!.id,
-              admissionMethod: combinedMethod,
+              majorId: major.id,
+              admissionMethod: pref.block || pref.admissionMethod || 'dynamic',
               preferencePriority: pref.priority,
               subjectScores: subjectScores,
               calculatedScore: calculatedScore,

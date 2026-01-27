@@ -25,16 +25,14 @@ export function QuotaConditionsModal({
     minSubjectScores: {},
     requiredSubjects: [],
     subjectCombinations: [],
-    priorityBonus: {
-      enabled: true,
-      maxBonus: 2.0,
-    },
   });
   const [loading, setLoading] = useState(false);
   const [newSubject, setNewSubject] = useState('');
   const [newMinScore, setNewMinScore] = useState('');
   const [newCombination, setNewCombination] = useState<string[]>([]);
   const [newCombSubject, setNewCombSubject] = useState('');
+
+  // ... (keep state variables)
 
   useEffect(() => {
     if (quota?.conditions) {
@@ -45,13 +43,26 @@ export function QuotaConditionsModal({
         minSubjectScores: {},
         requiredSubjects: [],
         subjectCombinations: [],
-        priorityBonus: {
-          enabled: true,
-          maxBonus: 2.0,
-        },
       });
     }
   }, [quota]);
+
+  // ... (keep logic)
+
+  {/* Info Alert */ }
+  <Card className="p-4 bg-blue-50 border-blue-200">
+    <div className="flex gap-2">
+      <Info className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+      <div className="text-sm text-blue-800">
+        <p className="font-medium mb-1">Quy định xét tuyển:</p>
+        <ul className="list-disc list-inside space-y-1">
+          <li><b>Điểm sàn (Tổng điểm tối thiểu):</b> Thí sinh có tổng điểm (đã cộng ưu tiên) thấp hơn mức này sẽ bị <b>TRƯỢT</b>.</li>
+          <li><b>Điểm ưu tiên:</b> Hệ thống tự động tính và cộng theo Quy chế 2025 (giảm dần nếu tổng điểm ≥ 22.5). Không cần cấu hình ở đây.</li>
+          <li>Tất cả điều kiện nhập bên dưới phải thỏa mãn thì thí sinh mới đủ điều kiện xét tuyển.</li>
+        </ul>
+      </div>
+    </div>
+  </Card>
 
   if (!open) return null;
 

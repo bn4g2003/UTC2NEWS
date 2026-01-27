@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const quotaSchema = z.object({
   sessionId: z.string().min(1, 'Vui lòng chọn đợt tuyển sinh'),
   majorId: z.string().min(1, 'Vui lòng chọn ngành'),
-  admissionMethod: z.string().min(1, 'Vui lòng chọn phương thức'),
+  formulaId: z.string().optional(),
   quota: z.number().min(1, 'Chỉ tiêu phải lớn hơn 0'),
 });
 

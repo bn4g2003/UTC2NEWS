@@ -62,13 +62,12 @@ export class CreateQuotaDto {
   majorId: string;
 
   @ApiProperty({
-    description: 'Admission method',
-    example: 'entrance_exam',
-    enum: ['entrance_exam', 'high_school_transcript', 'direct_admission'],
+    description: 'Formula ID for this quota',
+    example: 'uuid-formula-id',
   })
   @IsString()
-  @IsNotEmpty()
-  admissionMethod: string;
+  @IsOptional()
+  formulaId?: string;
 
   @ApiProperty({
     description: 'Number of admission slots',
