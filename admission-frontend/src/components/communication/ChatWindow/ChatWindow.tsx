@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useChat } from '@/hooks/useChat';
+import { useChatStore } from '@/store/chatStore';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
 import { ChatSidebar } from './ChatSidebar';
@@ -37,6 +38,9 @@ export function ChatWindow() {
     loadPinnedMessages,
     socketRef,
   } = useChat();
+  
+  // Import updateMessage from chatStore for optimistic updates
+  const { updateMessage } = useChatStore();
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
@@ -44,6 +48,7 @@ export function ChatWindow() {
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [pinnedMessages, setPinnedMessages] = useState<any[]>([]);
   const [replyingToMessage, setReplyingToMessage] = useState<any>(null);
+  const [isCreatingMeeting, setIsCreatingMeeting] = useState(false);
 
   useEffect(() => {
     if (isConnected) {
@@ -74,6 +79,36 @@ export function ChatWindow() {
     const handleOpenModal = () => setIsNewChatModalOpen(true);
     window.addEventListener('openNewChatModal', handleOpenModal);
     return () => window.removeEventListener('openNewChatModal', handleOpenModal);
+  }, []);
+
+  // Listen for meeting link messages
+  useEffect(() => {
+    const handleSendMeetingLink = (event: any) => {
+      const { roomId, content, type, metadata } = event.detail;
+      if (roomId === activeRoomId) {
+        sendMessage(roomId, content, type, metadata);
+      }
+    };
+
+    window.addEventListener('send:meeting:link', handleSendMeetingLink);
+    return () => window.removeEventListener('send:meeting:link', handleSendMeetingLink);
+  }, [activeRoomId, sendMessage]);
+
+  // Listen for meeting creation status
+  useEffect(() => {
+    const handleMeetingCreating = () => setIsCreatingMeeting(true);
+    const handleMeetingCreated = () => setIsCreatingMeeting(false);
+    const handleMeetingError = () => setIsCreatingMeeting(false);
+
+    window.addEventListener('meeting:creating', handleMeetingCreating);
+    window.addEventListener('meeting:created', handleMeetingCreated);
+    window.addEventListener('meeting:error', handleMeetingError);
+
+    return () => {
+      window.removeEventListener('meeting:creating', handleMeetingCreating);
+      window.removeEventListener('meeting:created', handleMeetingCreated);
+      window.removeEventListener('meeting:error', handleMeetingError);
+    };
   }, []);
 
   const activeRoom = Array.isArray(rooms) ? rooms.find((r) => r.id === activeRoomId) : undefined;
@@ -225,12 +260,21 @@ export function ChatWindow() {
                       });
                       window.dispatchEvent(event);
                     }}
-                    className="p-2 hover:bg-purple-100 text-purple-600 rounded-lg transition-colors"
-                    title="Gọi Video"
+                    disabled={isCreatingMeeting}
+                    className={`p-2 rounded-lg transition-colors ${
+                      isCreatingMeeting
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'hover:bg-purple-100 text-purple-600'
+                    }`}
+                    title={isCreatingMeeting ? 'Đang tạo cuộc họp...' : 'Gọi Video'}
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
+                    {isCreatingMeeting ? (
+                      <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    )}
                   </button>
                   <button
                     onClick={() => setIsSearchModalOpen(true)}
@@ -319,7 +363,37 @@ export function ChatWindow() {
                 onForwardMessage={handleForwardMessage}
                 onReplyMessage={setReplyingToMessage}
                 onAddReaction={(messageId, emoji) => {
-                  // Send reaction via socket
+                  // Optimistic update - cập nhật ngay lập tức
+                  const currentMessages = messages[activeRoomId] || [];
+                  const messageIndex = currentMessages.findIndex(m => m.id === messageId);
+                  
+                  if (messageIndex !== -1) {
+                    const message = currentMessages[messageIndex];
+                    const reactions = message.reactions || [];
+                    
+                    // Check if user already reacted with this emoji
+                    const existingReaction = reactions.find(
+                      r => r.emoji === emoji && r.userId === user?.id
+                    );
+                    
+                    if (!existingReaction) {
+                      // Add reaction optimistically
+                      const updatedMessage = {
+                        ...message,
+                        reactions: [
+                          ...reactions,
+                          {
+                            emoji,
+                            userId: user?.id || '',
+                            userName: user?.fullName || 'You'
+                          }
+                        ]
+                      };
+                      updateMessage(updatedMessage);
+                    }
+                  }
+                  
+                  // Send to server
                   if (socketRef.current?.connected) {
                     socketRef.current.emit('message:react', {
                       messageId,
@@ -328,7 +402,25 @@ export function ChatWindow() {
                   }
                 }}
                 onRemoveReaction={(messageId, emoji) => {
-                  // Remove reaction via socket
+                  // Optimistic update - xóa ngay lập tức
+                  const currentMessages = messages[activeRoomId] || [];
+                  const messageIndex = currentMessages.findIndex(m => m.id === messageId);
+                  
+                  if (messageIndex !== -1) {
+                    const message = currentMessages[messageIndex];
+                    const reactions = message.reactions || [];
+                    
+                    // Remove reaction optimistically
+                    const updatedMessage = {
+                      ...message,
+                      reactions: reactions.filter(
+                        r => !(r.emoji === emoji && r.userId === user?.id)
+                      )
+                    };
+                    updateMessage(updatedMessage);
+                  }
+                  
+                  // Send to server
                   if (socketRef.current?.connected) {
                     socketRef.current.emit('message:unreact', {
                       messageId,

@@ -67,26 +67,40 @@ export function useChat() {
         updateMessage(message);
       });
 
-      socket.on('message:reaction:added', ({ messageId, reaction }: any) => {
+      socket.on('message:deleted', (message: any) => {
+        console.log('Message deleted:', message);
+        updateMessage(message);
+      });
+
+      socket.on('message:reaction:added', ({ messageId, reaction, message: updatedMessage }: any) => {
         console.log('Reaction added:', { messageId, reaction });
-        // Reload messages for the room to get updated reactions
-        // Or update locally if we have the message
-        const roomId = Object.keys(messages).find(rId =>
-          messages[rId]?.some(m => m.id === messageId)
-        );
-        if (roomId) {
-          loadMessages(roomId);
+        // Update message directly if we have the full message
+        if (updatedMessage) {
+          updateMessage(updatedMessage);
+        } else {
+          // Fallback: reload messages for the room
+          const roomId = Object.keys(messages).find(rId =>
+            messages[rId]?.some(m => m.id === messageId)
+          );
+          if (roomId) {
+            loadMessages(roomId);
+          }
         }
       });
 
-      socket.on('message:reaction:removed', ({ messageId, emoji, userId }: any) => {
+      socket.on('message:reaction:removed', ({ messageId, emoji, userId, message: updatedMessage }: any) => {
         console.log('Reaction removed:', { messageId, emoji, userId });
-        // Reload messages for the room to get updated reactions
-        const roomId = Object.keys(messages).find(rId =>
-          messages[rId]?.some(m => m.id === messageId)
-        );
-        if (roomId) {
-          loadMessages(roomId);
+        // Update message directly if we have the full message
+        if (updatedMessage) {
+          updateMessage(updatedMessage);
+        } else {
+          // Fallback: reload messages for the room
+          const roomId = Object.keys(messages).find(rId =>
+            messages[rId]?.some(m => m.id === messageId)
+          );
+          if (roomId) {
+            loadMessages(roomId);
+          }
         }
       });
 

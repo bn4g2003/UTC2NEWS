@@ -15,6 +15,20 @@ export class VideoCallController {
     async createRoom(@Body() data: { name: string; description?: string }, @Request() req) {
         const room = await this.videoCallService.createRoom(data.name, data.description);
 
+        // Check if video session already exists for this room
+        const existingSession = await this.prisma.videoSession.findUnique({
+            where: { roomId: room.id },
+        });
+
+        if (existingSession) {
+            // Return existing session instead of creating duplicate
+            return {
+                id: existingSession.id,
+                hmsRoomId: room.id,
+                title: existingSession.title,
+            };
+        }
+
         // Save to our database
         const videoSession = await this.prisma.videoSession.create({
             data: {

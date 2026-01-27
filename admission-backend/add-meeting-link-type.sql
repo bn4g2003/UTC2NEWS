@@ -1,0 +1,2 @@
+-- Add MEETING_LINK to MessageType enum
+ALTER TYPE "MessageType" ADD VALUE IF NOT EXISTS 'MEETING_LINK';

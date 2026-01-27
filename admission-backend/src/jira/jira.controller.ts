@@ -125,4 +125,34 @@ export class JiraController {
   deleteAttachment(@Param('attachmentId') attachmentId: string, @Request() req) {
     return this.jiraService.deleteAttachment(attachmentId, req.user.userId);
   }
+
+  // ============ Statistics & Dashboard ============
+  @Get('projects/:projectId/statistics')
+  getProjectStatistics(@Param('projectId') projectId: string, @Request() req) {
+    return this.jiraService.getProjectStatistics(projectId, req.user.userId);
+  }
+
+  @Get('my-summary')
+  getMyTasksSummary(@Request() req) {
+    return this.jiraService.getMyTasksSummary(req.user.userId);
+  }
+
+  // ============ Project Members ============
+  @Post('projects/:projectId/members')
+  addMember(
+    @Param('projectId') projectId: string,
+    @Request() req,
+    @Body() body: { email: string; role?: 'ADMIN' | 'MEMBER' },
+  ) {
+    return this.jiraService.addMember(projectId, req.user.userId, body.email, body.role);
+  }
+
+  @Delete('projects/:projectId/members/:memberId')
+  removeMember(
+    @Param('projectId') projectId: string,
+    @Param('memberId') memberId: string,
+    @Request() req,
+  ) {
+    return this.jiraService.removeMember(projectId, req.user.userId, memberId);
+  }
 }

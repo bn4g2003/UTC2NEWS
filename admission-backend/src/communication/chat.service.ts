@@ -301,7 +301,7 @@ export class ChatService {
           type: 'SYSTEM',
           metadata: null,
           isDeleted: true,
-          reactions: formattedReactions,
+          reactions: [], // No reactions for deleted messages
         };
       }
       return {
@@ -629,6 +629,11 @@ export class ChatService {
     if (!isSender && !isAdmin) {
       throw new Error('You can only delete your own messages or you must be an admin');
     }
+
+    // Delete all reactions first
+    await this.prisma.messageReaction.deleteMany({
+      where: { messageId },
+    });
 
     return this.prisma.message.update({
       where: { id: messageId },

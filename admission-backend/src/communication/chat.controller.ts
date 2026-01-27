@@ -11,6 +11,7 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  Inject,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ChatService } from './chat.service';
@@ -19,13 +20,15 @@ import { CreateRoomDto } from './dto/create-room.dto';
 import { AddMemberDto } from './dto/add-member.dto';
 import { RemoveMemberDto } from './dto/remove-member.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ChatGateway } from './chat.gateway';
 
 @Controller('chat')
 @UseGuards(JwtAuthGuard)
 export class ChatController {
   constructor(
     private readonly chatService: ChatService,
-    private readonly cmsService: CmsService
+    private readonly cmsService: CmsService,
+    @Inject(ChatGateway) private readonly chatGateway: ChatGateway,
   ) { }
 
   @Post('upload')
@@ -113,7 +116,26 @@ export class ChatController {
 
   @Delete('messages/:id')
   async deleteMessage(@Param('id') id: string, @Request() req) {
-    return this.chatService.deleteMessage(id, req.user.userId);
+    const deletedMessage = await this.chatService.deleteMessage(id, req.user.userId);
+    
+    // Emit WebSocket event to notify all users in the room
+    if (deletedMessage && this.chatGateway.server) {
+      // Transform to match frontend format - no reactions for deleted messages
+      const transformedMessage = {
+        ...deletedMessage,
+        content: 'Tin nhắn đã bị thu hồi',
+        type: 'SYSTEM',
+        metadata: null,
+        isDeleted: true,
+        reactions: [], // Empty reactions array
+      };
+      
+      this.chatGateway.server
+        .to(`room:${deletedMessage.roomId}`)
+        .emit('message:deleted', transformedMessage);
+    }
+    
+    return deletedMessage;
   }
 
   @Delete('rooms/:roomId')

@@ -27,18 +27,23 @@ export class JiraService {
         },
         columns: {
           create: [
-            { name: 'Cần Làm', order: 0, color: '#94a3b8' },
-            { name: 'Đang Làm', order: 1, color: '#3b82f6' },
-            { name: 'Đánh Giá', order: 2, color: '#f59e0b' },
+            { name: 'Chờ Xử Lý', order: 0, color: '#94a3b8' },
+            { name: 'Đang Thực Hiện', order: 1, color: '#3b82f6' },
+            { name: 'Đang Kiểm Tra', order: 2, color: '#f59e0b' },
             { name: 'Hoàn Thành', order: 3, color: '#10b981' },
-            { name: 'Dừng', order: 4, color: '#ef4444' },
+            { name: 'Tạm Dừng', order: 4, color: '#ef4444' },
           ],
         },
       },
       include: {
         columns: { orderBy: { order: 'asc' } },
         members: { include: { user: true } },
+        _count: { select: { tasks: true } },
       },
+    });
+
+    await this.logActivity(project.id, null, userId, 'created_project', {
+      projectName: project.name,
     });
 
     return project;
@@ -448,5 +453,219 @@ export class JiraService {
     );
 
     return { message: 'Xóa file đính kèm thành công' };
+  }
+
+  // ============ Statistics & Dashboard ============
+  async getProjectStatistics(projectId: string, userId: string) {
+    await this.checkProjectAccess(projectId, userId);
+
+    const [
+      totalTasks,
+      tasksByStatus,
+      tasksByPriority,
+      tasksByType,
+      tasksByAssignee,
+      recentActivity,
+      overdueTasksCount,
+    ] = await Promise.all([
+      // Total tasks
+      this.prisma.task.count({ where: { projectId } }),
+
+      // Tasks by status (column)
+      this.prisma.task.groupBy({
+        by: ['columnId'],
+        where: { projectId },
+        _count: true,
+      }),
+
+      // Tasks by priority
+      this.prisma.task.groupBy({
+        by: ['priority'],
+        where: { projectId },
+        _count: true,
+      }),
+
+      // Tasks by type
+      this.prisma.task.groupBy({
+        by: ['type'],
+        where: { projectId },
+        _count: true,
+      }),
+
+      // Tasks by assignee
+      this.prisma.task.groupBy({
+        by: ['assigneeId'],
+        where: { projectId, assigneeId: { not: null } },
+        _count: true,
+      }),
+
+      // Recent activity
+      this.prisma.activityLog.findMany({
+        where: { projectId },
+        include: {
+          user: { select: { id: true, fullName: true, email: true } },
+          task: { select: { id: true, title: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      }),
+
+      // Overdue tasks
+      this.prisma.task.count({
+        where: {
+          projectId,
+          dueDate: { lt: new Date() },
+          column: { name: { not: 'Hoàn Thành' } },
+        },
+      }),
+    ]);
+
+    // Get column names
+    const columns = await this.prisma.column.findMany({
+      where: { projectId },
+      select: { id: true, name: true, color: true },
+    });
+
+    // Get assignee names
+    const assigneeIds = tasksByAssignee.map((t) => t.assigneeId).filter(Boolean);
+    const assignees = await this.prisma.user.findMany({
+      where: { id: { in: assigneeIds as string[] } },
+      select: { id: true, fullName: true },
+    });
+
+    // Format data
+    const columnMap = new Map(columns.map((c) => [c.id, c]));
+    const assigneeMap = new Map(assignees.map((a) => [a.id, a]));
+
+    return {
+      totalTasks,
+      overdueTasksCount,
+      tasksByStatus: tasksByStatus.map((item) => ({
+        columnId: item.columnId,
+        columnName: columnMap.get(item.columnId)?.name || 'Không rõ',
+        color: columnMap.get(item.columnId)?.color,
+        count: item._count,
+      })),
+      tasksByPriority: tasksByPriority.map((item) => ({
+        priority: item.priority,
+        count: item._count,
+      })),
+      tasksByType: tasksByType.map((item) => ({
+        type: item.type,
+        count: item._count,
+      })),
+      tasksByAssignee: tasksByAssignee.map((item) => ({
+        assigneeId: item.assigneeId,
+        assigneeName: assigneeMap.get(item.assigneeId!)?.fullName || 'Chưa phân công',
+        count: item._count,
+      })),
+      recentActivity,
+    };
+  }
+
+  async getMyTasksSummary(userId: string) {
+    const [assignedToMe, reportedByMe, totalProjects] = await Promise.all([
+      this.prisma.task.count({
+        where: {
+          assigneeId: userId,
+          column: { name: { not: 'Hoàn Thành' } },
+        },
+      }),
+      this.prisma.task.count({
+        where: {
+          reporterId: userId,
+          column: { name: { not: 'Hoàn Thành' } },
+        },
+      }),
+      this.prisma.projectMember.count({
+        where: { userId },
+      }),
+    ]);
+
+    return {
+      assignedToMe,
+      reportedByMe,
+      totalProjects,
+    };
+  }
+
+  // ============ Project Members Management ============
+  async addMember(projectId: string, userId: string, memberEmail: string, role: 'ADMIN' | 'MEMBER' = 'MEMBER') {
+    const member = await this.checkProjectAccess(projectId, userId);
+    
+    if (member.role !== 'OWNER' && member.role !== 'ADMIN') {
+      throw new ForbiddenException('Chỉ chủ dự án hoặc quản trị viên mới có thể thêm thành viên');
+    }
+
+    const newMember = await this.prisma.user.findUnique({
+      where: { email: memberEmail },
+    });
+
+    if (!newMember) {
+      throw new NotFoundException('Không tìm thấy người dùng với email này');
+    }
+
+    const existingMember = await this.prisma.projectMember.findUnique({
+      where: {
+        projectId_userId: { projectId, userId: newMember.id },
+      },
+    });
+
+    if (existingMember) {
+      throw new BadRequestException('Người dùng đã là thành viên của dự án');
+    }
+
+    const projectMember = await this.prisma.projectMember.create({
+      data: {
+        projectId,
+        userId: newMember.id,
+        role,
+      },
+      include: {
+        user: { select: { id: true, fullName: true, email: true } },
+      },
+    });
+
+    await this.logActivity(projectId, null, userId, 'added_member', {
+      memberName: newMember.fullName,
+      role,
+    });
+
+    return projectMember;
+  }
+
+  async removeMember(projectId: string, userId: string, memberId: string) {
+    const member = await this.checkProjectAccess(projectId, userId);
+    
+    if (member.role !== 'OWNER' && member.role !== 'ADMIN') {
+      throw new ForbiddenException('Chỉ chủ dự án hoặc quản trị viên mới có thể xóa thành viên');
+    }
+
+    const targetMember = await this.prisma.projectMember.findUnique({
+      where: {
+        projectId_userId: { projectId, userId: memberId },
+      },
+      include: { user: true },
+    });
+
+    if (!targetMember) {
+      throw new NotFoundException('Không tìm thấy thành viên');
+    }
+
+    if (targetMember.role === 'OWNER') {
+      throw new ForbiddenException('Không thể xóa chủ dự án');
+    }
+
+    await this.prisma.projectMember.delete({
+      where: {
+        projectId_userId: { projectId, userId: memberId },
+      },
+    });
+
+    await this.logActivity(projectId, null, userId, 'removed_member', {
+      memberName: targetMember.user.fullName,
+    });
+
+    return { message: 'Đã xóa thành viên khỏi dự án' };
   }
 }

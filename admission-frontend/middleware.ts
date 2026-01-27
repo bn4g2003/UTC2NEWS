@@ -26,6 +26,8 @@ const PROTECTED_ROUTES = [
   '/categories',
   '/faqs',
   '/media',
+  '/chat',
+  '/meeting',
 ];
 
 // Public routes that don't require authentication

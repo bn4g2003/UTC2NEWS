@@ -418,6 +418,7 @@ enum MessageType {
   IMAGE
   FILE
   SYSTEM
+  MEETING_LINK
 }
 
 enum VideoSessionStatus {

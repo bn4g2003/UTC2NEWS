@@ -15,6 +15,7 @@ export function VideoCallManager() {
     const [callSession, setCallSession] = useState<any>(null); // { roomId, callId, caller, isOutgoing, hmsRoomId }
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [incomingCall, setIncomingCall] = useState<any>(null);
+    const [isCreatingMeeting, setIsCreatingMeeting] = useState(false);
 
     // Handle incoming call invitation
     useEffect(() => {
@@ -71,6 +72,9 @@ export function VideoCallManager() {
             const { roomId, roomName, type } = event.detail;
 
             try {
+                setIsCreatingMeeting(true);
+                window.dispatchEvent(new CustomEvent('meeting:creating'));
+                
                 // 1. Create room in backend/100ms
                 const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/video/rooms`, {
                     method: 'POST',
@@ -83,39 +87,73 @@ export function VideoCallManager() {
 
                 const data = await response.json();
 
-                // 2. Initiate signaling
-                const initiateData = {
-                    roomId,
-                    roomName,
-                    type,
-                    hmsRoomId: data.hmsRoomId
-                };
+                // 2. Check if GROUP or CHANNEL - send meeting link message
+                if (type === 'GROUP' || type === 'CHANNEL') {
+                    // Send meeting link message to chat
+                    const meetingLink = `${window.location.origin}/meeting/${data.hmsRoomId}`;
+                    const meetingMessage = `📹 Cuộc họp video\n\n${user?.fullName} đã tạo cuộc họp video.\n\nTham gia: ${meetingLink}\n\nBạn có thể tham gia bất kỳ lúc nào!`;
+                    
+                    // Emit message send event
+                    const sendMessageEvent = new CustomEvent('send:meeting:link', {
+                        detail: {
+                            roomId,
+                            content: meetingMessage,
+                            type: 'MEETING_LINK',
+                            metadata: {
+                                hmsRoomId: data.hmsRoomId,
+                                meetingLink,
+                                createdBy: user?.id,
+                                createdByName: user?.fullName
+                            }
+                        }
+                    });
+                    window.dispatchEvent(sendMessageEvent);
 
-                // We need to update useChat to accept hmsRoomId or just emit manually
-                // For simplicity, I'll update useChat or emit here if useChat is updated
-                const eventEmit = new CustomEvent('call:initiate:emit', { detail: initiateData });
-                window.dispatchEvent(eventEmit);
+                    // Join the meeting immediately for creator
+                    setCallSession({
+                        roomId,
+                        roomName,
+                        type,
+                        isOutgoing: true,
+                        hmsRoomId: data.hmsRoomId
+                    });
+                    await joinHMSRoom(data.hmsRoomId);
+                } else {
+                    // DIRECT call - use traditional signaling
+                    const initiateData = {
+                        roomId,
+                        roomName,
+                        type,
+                        hmsRoomId: data.hmsRoomId
+                    };
 
-                // 3. Set local session
-                setCallSession({
-                    roomId,
-                    roomName,
-                    type,
-                    isOutgoing: true,
-                    hmsRoomId: data.hmsRoomId
-                });
+                    const eventEmit = new CustomEvent('call:initiate:emit', { detail: initiateData });
+                    window.dispatchEvent(eventEmit);
 
-                // 4. Open modal and join
-                joinHMSRoom(data.hmsRoomId);
+                    setCallSession({
+                        roomId,
+                        roomName,
+                        type,
+                        isOutgoing: true,
+                        hmsRoomId: data.hmsRoomId
+                    });
+
+                    await joinHMSRoom(data.hmsRoomId);
+                }
+                
+                window.dispatchEvent(new CustomEvent('meeting:created'));
             } catch (error) {
                 console.error('Failed to start call:', error);
                 alert('Không thể bắt đầu cuộc gọi video');
+                window.dispatchEvent(new CustomEvent('meeting:error'));
+            } finally {
+                setIsCreatingMeeting(false);
             }
         };
 
         window.addEventListener('call:start:request', handleStartCall);
         return () => window.removeEventListener('call:start:request', handleStartCall);
-    }, [token, initiateCall]);
+    }, [token, initiateCall, user]);
 
     const joinHMSRoom = async (hmsRoomId: string) => {
         try {
@@ -193,6 +231,21 @@ export function VideoCallManager() {
                     roomName={callSession.roomName}
                     isOutgoing={callSession.isOutgoing}
                 />
+            )}
+            
+            {/* Loading Modal khi đang tạo meeting */}
+            {isCreatingMeeting && (
+                <div className="fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center">
+                    <div className="bg-white rounded-xl p-8 max-w-sm w-full mx-4 text-center">
+                        <div className="w-16 h-16 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                            Đang tạo cuộc họp...
+                        </h3>
+                        <p className="text-gray-600 text-sm">
+                            Vui lòng đợi trong giây lát
+                        </p>
+                    </div>
+                </div>
             )}
         </>
     );

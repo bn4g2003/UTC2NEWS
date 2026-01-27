@@ -126,7 +126,7 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
       <MessageOutlined />,
       [
         createMenuItem('Chat', ROUTES.ADMIN.COMMUNICATION.CHAT, <MessageOutlined />),
-        createMenuItem('Jira', ROUTES.ADMIN.JIRA, <ProjectOutlined />),
+        createMenuItem('Quản lý công việc', ROUTES.ADMIN.WORK_MANAGEMENT, <ProjectOutlined />),
       ]
     ),
 
@@ -199,7 +199,7 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
       setOpenKeys(['admission_process']);
     } else if (
       pathname === ROUTES.ADMIN.COMMUNICATION.CHAT ||
-      pathname?.startsWith(ROUTES.ADMIN.JIRA)
+      pathname?.startsWith(ROUTES.ADMIN.WORK_MANAGEMENT)
     ) {
       setOpenKeys(['communication']);
     } else if (

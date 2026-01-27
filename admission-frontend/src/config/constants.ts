@@ -80,7 +80,7 @@ export const ROUTES = {
     COMMUNICATION: {
       CHAT: '/communication/chat',
     },
-    JIRA: '/jira',
+    WORK_MANAGEMENT: '/quan-ly-cong-viec',
     CMS: {
       POSTS: '/posts',
       CATEGORIES: '/categories',

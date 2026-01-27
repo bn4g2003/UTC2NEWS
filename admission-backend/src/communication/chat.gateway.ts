@@ -275,17 +275,46 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         data.emoji,
       );
 
-      // Get message to find roomId
+      // Get full message with all reactions
       const message = await this.chatService['prisma'].message.findUnique({
         where: { id: data.messageId },
-        select: { roomId: true },
+        include: {
+          sender: {
+            select: {
+              id: true,
+              fullName: true,
+              username: true,
+            },
+          },
+          reactions: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  fullName: true,
+                },
+              },
+            },
+          },
+        },
       });
 
       if (message) {
-        // Emit to all in room
+        // Transform reactions to match frontend format
+        const transformedMessage = {
+          ...message,
+          reactions: message.reactions.map(r => ({
+            emoji: r.emoji,
+            userId: r.userId,
+            userName: r.user.fullName,
+          })),
+        };
+
+        // Emit to all in room with full message
         this.server.to(`room:${message.roomId}`).emit('message:reaction:added', {
           messageId: data.messageId,
           reaction,
+          message: transformedMessage,
         });
       }
 
@@ -310,18 +339,47 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         data.emoji,
       );
 
-      // Get message to find roomId
+      // Get full message with all reactions
       const message = await this.chatService['prisma'].message.findUnique({
         where: { id: data.messageId },
-        select: { roomId: true },
+        include: {
+          sender: {
+            select: {
+              id: true,
+              fullName: true,
+              username: true,
+            },
+          },
+          reactions: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  fullName: true,
+                },
+              },
+            },
+          },
+        },
       });
 
       if (message) {
-        // Emit to all in room
+        // Transform reactions to match frontend format
+        const transformedMessage = {
+          ...message,
+          reactions: message.reactions.map(r => ({
+            emoji: r.emoji,
+            userId: r.userId,
+            userName: r.user.fullName,
+          })),
+        };
+
+        // Emit to all in room with full message
         this.server.to(`room:${message.roomId}`).emit('message:reaction:removed', {
           messageId: data.messageId,
           emoji: data.emoji,
           userId,
+          message: transformedMessage,
         });
       }
 

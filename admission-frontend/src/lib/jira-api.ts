@@ -188,4 +188,41 @@ export const jiraApi = {
       return handleResponse<{ message: string }>(response);
     },
   },
+
+  // ============ Statistics ============
+  statistics: {
+    getProjectStats: async (projectId: string): Promise<any> => {
+      const response = await fetch(`${JIRA_API_BASE}/projects/${projectId}/statistics`, {
+        headers: getAuthHeaders(),
+      });
+      return handleResponse(response);
+    },
+
+    getMySummary: async (): Promise<any> => {
+      const response = await fetch(`${JIRA_API_BASE}/my-summary`, {
+        headers: getAuthHeaders(),
+      });
+      return handleResponse(response);
+    },
+  },
+
+  // ============ Members ============
+  members: {
+    add: async (projectId: string, email: string, role?: 'ADMIN' | 'MEMBER'): Promise<any> => {
+      const response = await fetch(`${JIRA_API_BASE}/projects/${projectId}/members`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ email, role }),
+      });
+      return handleResponse(response);
+    },
+
+    remove: async (projectId: string, memberId: string): Promise<{ message: string }> => {
+      const response = await fetch(`${JIRA_API_BASE}/projects/${projectId}/members/${memberId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      return handleResponse<{ message: string }>(response);
+    },
+  },
 };
