@@ -12,10 +12,17 @@ import { formulaSchema } from '../../formulas/schema'; // Import formula schema
 import type { Column } from '@/components/admin/DataGrid/types';
 import { Form, Select, InputNumber, Input, Tag, Tabs, message, Tooltip, Badge, Button as AntButton, Row, Col } from 'antd';
 import { ProgramsService } from '@/api/services/ProgramsService';
-import { FormulaService, FormulaDto } from '@/api/services/FormulaService';
+import { FormulasService } from '@/api/services/FormulasService';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { getBlockCode } from '@/lib/block-code-mapper';
+
+interface FormulaDto {
+    id?: string;
+    name: string;
+    formula: string;
+    description?: string;
+}
 
 interface Quota {
     id: string;
@@ -80,7 +87,7 @@ export default function SessionDetailsPage({ params }: SessionDetailsPageProps) 
                 ProgramsService.programControllerFindSessionById(sessionId),
                 ProgramsService.programControllerFindAllQuotas(sessionId),
                 ProgramsService.programControllerFindAllMajors(),
-                FormulaService.findAll(),
+                FormulasService.formulaControllerFindAll(),
             ]);
             setSession(sessionData);
             setQuotas(quotasData as Quota[]);
@@ -194,10 +201,10 @@ export default function SessionDetailsPage({ params }: SessionDetailsPageProps) 
     const handleSubmitFormula = async (data: any) => {
         try {
             if (selectedFormula && selectedFormula.id) {
-                await FormulaService.update(selectedFormula.id, data);
+                await FormulasService.formulaControllerUpdate(selectedFormula.id);
                 message.success('Cập nhật công thức thành công');
             } else {
-                await FormulaService.create(data);
+                await FormulasService.formulaControllerCreate();
                 message.success('Tạo công thức mới thành công');
             }
             await loadData();
@@ -215,7 +222,7 @@ export default function SessionDetailsPage({ params }: SessionDetailsPageProps) 
     const handleConfirmDeleteFormula = async () => {
         if (!selectedFormula || !selectedFormula.id) return;
         try {
-            await FormulaService.delete(selectedFormula.id);
+            await FormulasService.formulaControllerRemove(selectedFormula.id);
             message.success('Xóa công thức thành công');
             await loadData();
             setIsFormulaDeleteOpen(false);

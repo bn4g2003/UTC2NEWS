@@ -13,9 +13,9 @@ export type CreateQuotaDto = {
      */
     majorId: string;
     /**
-     * Admission method
+     * Formula ID for this quota
      */
-    admissionMethod: CreateQuotaDto.admissionMethod;
+    formulaId: string;
     /**
      * Number of admission slots
      */
@@ -25,14 +25,4 @@ export type CreateQuotaDto = {
      */
     conditions?: QuotaConditionsDto;
 };
-export namespace CreateQuotaDto {
-    /**
-     * Admission method
-     */
-    export enum admissionMethod {
-        ENTRANCE_EXAM = 'entrance_exam',
-        HIGH_SCHOOL_TRANSCRIPT = 'high_school_transcript',
-        DIRECT_ADMISSION = 'direct_admission',
-    }
-}
 

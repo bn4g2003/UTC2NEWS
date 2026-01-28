@@ -17,6 +17,11 @@ interface Message {
   metadata?: any;
   createdAt: string;
   sender: User;
+  reactions?: Array<{
+    emoji: string;
+    userId: string;
+    userName: string;
+  }>;
 }
 
 interface ChatRoom {

@@ -12,5 +12,9 @@ export type UpdateQuotaDto = {
      * Admission conditions and criteria
      */
     conditions?: QuotaConditionsDto;
+    /**
+     * Formula ID for this quota
+     */
+    formulaId?: string;
 };
 

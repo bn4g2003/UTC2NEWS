@@ -364,6 +364,7 @@ export function ChatWindow() {
                 onReplyMessage={setReplyingToMessage}
                 onAddReaction={(messageId, emoji) => {
                   // Optimistic update - cập nhật ngay lập tức
+                  if (!activeRoomId) return;
                   const currentMessages = messages[activeRoomId] || [];
                   const messageIndex = currentMessages.findIndex(m => m.id === messageId);
                   
@@ -403,6 +404,7 @@ export function ChatWindow() {
                 }}
                 onRemoveReaction={(messageId, emoji) => {
                   // Optimistic update - xóa ngay lập tức
+                  if (!activeRoomId) return;
                   const currentMessages = messages[activeRoomId] || [];
                   const messageIndex = currentMessages.findIndex(m => m.id === messageId);
                   

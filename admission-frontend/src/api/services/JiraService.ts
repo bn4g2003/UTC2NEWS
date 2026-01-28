@@ -217,4 +217,97 @@ export class JiraService {
             },
         });
     }
+    /**
+     * @param taskId
+     * @returns any
+     * @throws ApiError
+     */
+    public static jiraControllerUploadAttachment(
+        taskId: string,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/jira/tasks/{taskId}/attachments',
+            path: {
+                'taskId': taskId,
+            },
+        });
+    }
+    /**
+     * @param attachmentId
+     * @returns any
+     * @throws ApiError
+     */
+    public static jiraControllerDeleteAttachment(
+        attachmentId: string,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/jira/attachments/{attachmentId}',
+            path: {
+                'attachmentId': attachmentId,
+            },
+        });
+    }
+    /**
+     * @param projectId
+     * @returns any
+     * @throws ApiError
+     */
+    public static jiraControllerGetProjectStatistics(
+        projectId: string,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/jira/projects/{projectId}/statistics',
+            path: {
+                'projectId': projectId,
+            },
+        });
+    }
+    /**
+     * @returns any
+     * @throws ApiError
+     */
+    public static jiraControllerGetMyTasksSummary(): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/jira/my-summary',
+        });
+    }
+    /**
+     * @param projectId
+     * @returns any
+     * @throws ApiError
+     */
+    public static jiraControllerAddMember(
+        projectId: string,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/jira/projects/{projectId}/members',
+            path: {
+                'projectId': projectId,
+            },
+        });
+    }
+    /**
+     * @param projectId
+     * @param memberId
+     * @returns any
+     * @throws ApiError
+     */
+    public static jiraControllerRemoveMember(
+        projectId: string,
+        memberId: string,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/jira/projects/{projectId}/members/{memberId}',
+            path: {
+                'projectId': projectId,
+                'memberId': memberId,
+            },
+        });
+    }
 }
