@@ -1,0 +1,153 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: admission-postgres
+    environment:
+      POSTGRES_USER: admission
+      POSTGRES_PASSWORD: admission123
+      POSTGRES_DB: admission_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admission"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - admission-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: admission-redis
+    command: redis-server --requirepass redis123
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - admission-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: admission-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - admission-network
+
+  backend:
+    build: 
+      context: ./admission-backend
+      dockerfile: Dockerfile
+    container_name: admission-backend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      POSTGRES_USER: admission
+      POSTGRES_PASSWORD: admission123
+      POSTGRES_DB: admission_db
+      POSTGRES_PORT: 5432
+      # Update host to 'postgres'
+      DATABASE_URL: postgresql://admission:admission123@postgres:5432/admission_db?schema=public
+      
+      # Update host to 'minio'
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+      MINIO_BUCKET_NAME: admission-files
+      MINIO_USE_SSL: "false"
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin123
+      
+      # Update host to 'redis'
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis123
+      
+      PORT: 3000
+      FRONTEND_URL: http://localhost:3001
+      
+      # Security
+      JWT_SECRET: your-secret-key-change-in-production
+      JWT_EXPIRATION: 24h
+      
+      # Email Real Config
+      EMAIL_HOST: smtp.gmail.com
+      EMAIL_PORT: 587
+      EMAIL_SECURE: "false"
+      EMAIL_USER: nhatbangnguyenhet@gmail.com
+      EMAIL_PASSWORD: "zznq juqk vynh dszu"
+      EMAIL_FROM: "Trường Đại học Giao thông Vận tải TP.HCM <tuyensinh@utc2.edu.vn>"
+      
+      # Google API
+      GOOGLE_API_KEY: AIzaSyDfePk9op045GBQC9dEbXjR0K2h7sPrlOY
+      
+      # 100ms Video
+      HMS_ACCESS_KEY: 696d2c2d63cbbe924eef858b
+      HMS_SECRET: JmRarG34PSkftHZ1FFBdYiS9XxKnWMgi-vnBEM1jzbRcqso_LoGDowEHXW9b7k1adVz3QZLaA7fdQJvXZqnXoQGyvMiytaiXcTJI5tYcm30vCNWydZg_d-yDFKZ5qZPDlzVx4pa5YvWNPI3nTuE_S9Ma3VZ-BVaooas2kFSW7rU=
+      HMS_TEMPLATE_ID: 696d2ce4970f62489e2a97c7
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - admission-network
+
+  frontend:
+    build:
+      context: ./admission-frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:3000
+        NEXT_PUBLIC_WS_URL: ws://localhost:3000
+        NEXT_PUBLIC_JWT_EXPIRY: 86400
+        NEXT_PUBLIC_TOKEN_STORAGE_KEY: admission_token
+        NEXT_PUBLIC_APP_NAME: "Admission Management System"
+        NEXT_PUBLIC_APP_VERSION: 1.0.0
+        NEXT_PUBLIC_HMS_TEMPLATE_ID: 696d2ce4970f62489e2a97c7
+    container_name: admission-frontend
+    restart: always
+    ports:
+      - "3001:3001"
+    extra_hosts:
+      - "localhost:host-gateway"
+    depends_on:
+      - backend
+    networks:
+      - admission-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+
+networks:
+  admission-network:
+    driver: bridge

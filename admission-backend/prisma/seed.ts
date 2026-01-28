@@ -64,7 +64,15 @@ async function main() {
     { name: 'posts:publish', description: 'Phê duyệt/Xuất bản bài viết' },
     { name: 'categories:create', description: 'Tạo danh mục nội dung' },
     { name: 'categories:read', description: 'Xem danh mục' },
+    { name: 'categories:update', description: 'Cập nhật danh mục' },
+    { name: 'categories:delete', description: 'Xóa danh mục' },
+    { name: 'faqs:create', description: 'Tạo câu hỏi thường gặp' },
+    { name: 'faqs:read', description: 'Xem danh sách FAQ' },
+    { name: 'faqs:update', description: 'Cập nhật FAQ' },
+    { name: 'faqs:delete', description: 'Xóa FAQ' },
     { name: 'media:upload', description: 'Tải lên tệp tin media' },
+    { name: 'media:read', description: 'Xem thư viện media' },
+    { name: 'media:delete', description: 'Xóa tệp tin media' },
 
     // Cấu hình hệ thống
     { name: 'config:read', description: 'Xem cấu hình hệ thống' },

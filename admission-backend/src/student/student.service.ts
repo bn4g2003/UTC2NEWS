@@ -201,7 +201,26 @@ export class StudentService {
       throw new NotFoundException(`Student with ID ${id} not found`);
     }
 
-    return student;
+    // Merge latest student scores into applications for display consistency
+    const studentWithLatestScores = {
+      ...student,
+      applications: student.applications.map(app => {
+        const studentScores = student.scores as Record<string, number> | null;
+        // detailed logic: if student has scores, show them. Otherwise fall back to what's saved in app.
+        const subjectScores = (studentScores && Object.keys(studentScores).length > 0)
+          ? studentScores
+          : app.subjectScores;
+
+        return {
+          ...app,
+          subjectScores,
+          // Recalculate displayed score might be misleading if we don't actually run the calculation logic here,
+          // but mainly we want to show the correct input scores.
+        };
+      })
+    };
+
+    return studentWithLatestScores;
   }
 
   /**
@@ -274,6 +293,7 @@ export class StudentService {
     const isEligible = this.scoreCalculationService.isEligibleForQuota(
       addPreferenceDto.subjectScores,
       conditions,
+      Number(student.priorityPoints || 0),
     );
 
     const calculatedScore = isEligible && formulaId
@@ -407,6 +427,7 @@ export class StudentService {
       const isEligible = this.scoreCalculationService.isEligibleForQuota(
         finalScores,
         conditions,
+        Number(student.priorityPoints),
       );
 
       updateData.calculatedScore = isEligible && formulaId

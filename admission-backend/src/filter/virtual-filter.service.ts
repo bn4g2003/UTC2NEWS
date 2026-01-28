@@ -112,10 +112,15 @@ export class VirtualFilterService {
 
     // Calculate score for each application
     for (const application of applications) {
-      const subjectScores = application.subjectScores as Record<
-        string,
-        number
-      >;
+      // Use student's current scores as source of truth if available, otherwise fallback to application snapshot
+      // This ensures that updates to student profile are reflected in the filter
+      const student = application.student;
+      const studentScores = student.scores as Record<string, number> | null;
+      const appScores = application.subjectScores as Record<string, number>;
+
+      const subjectScores = (studentScores && Object.keys(studentScores).length > 0)
+        ? studentScores
+        : appScores;
       const priorityPoints = Number(application.student.priorityPoints);
 
       const quota = quotaMap.get(application.majorId);
@@ -139,11 +144,20 @@ export class VirtualFilterService {
         rejectionReasons.set(application.id, 'not_eligible_quota');
       }
 
-      // Calculate score with dynamic formula
+      // Update application with calculated score AND latest subject scores
+      // Also potentially update priority points logic here if needed based on quota conditions
+
+      // Check if priority points are disabled by quota conditions
+      let effectivePriorityPoints = priorityPoints;
+      if (conditions?.priorityBonus?.enabled === false) {
+        effectivePriorityPoints = 0;
+      }
+
+      // Recalculate score with potentially modified priority points
       let calculatedScore = isEligible
         ? await this.scoreCalculationService.calculateDynamicScore(
           subjectScores,
-          priorityPoints,
+          effectivePriorityPoints,
           formulaId,
           application.admissionMethod,
           { code: (application as any).major.code, name: (application as any).major.name },
@@ -156,7 +170,6 @@ export class VirtualFilterService {
           console.log(`[Filter Debug] App ${application.id}: Score ${calculatedScore} < MinTotalScore ${conditions.minTotalScore}. Result: FAILED (Below Floor)`);
           isEligible = false;
           rejectionReasons.set(application.id, 'not_eligible_quota');
-          // calculatedScore = 0; // Commented out to see the actual score in DB/Results for debugging
         } else {
           console.log(`[Filter Debug] App ${application.id}: Score ${calculatedScore} >= MinTotalScore ${conditions.minTotalScore}. Result: PASSED Floor`);
         }
@@ -164,11 +177,11 @@ export class VirtualFilterService {
         if (isEligible) console.log(`[Filter Debug] App ${application.id}: Score ${calculatedScore}. PASSED (No Floor Check)`);
       }
 
-      // Update application with calculated score
       await tx.application.update({
         where: { id: application.id },
         data: {
           calculatedScore,
+          subjectScores: subjectScores as any, // Sync latest scores to application
           admissionStatus: isEligible
             ? AdmissionStatus.pending
             : AdmissionStatus.not_admitted,

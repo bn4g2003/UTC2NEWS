@@ -111,6 +111,7 @@ export class ScoreCalculationService {
   isEligibleForQuota(
     scores: SubjectScores,
     conditions: QuotaConditions,
+    priorityPoints: number = 0,
   ): boolean {
     if (!scores || !conditions) return true;
 
@@ -151,10 +152,38 @@ export class ScoreCalculationService {
         conditions.minSubjectScores,
       )) {
         if (
-          scores[subject] === undefined ||
-          scores[subject] === null ||
+          scores[subject] !== undefined &&
+          scores[subject] !== null &&
           scores[subject] < minScore
         ) {
+          return false;
+        }
+      }
+    }
+
+    // 4. Check minimum total score (WITH priority points)
+    if (conditions.minTotalScore) {
+      // If subject combinations are defined, we check if ANY valid combination meets the total score
+      if (conditions.subjectCombinations && conditions.subjectCombinations.length > 0) {
+        const hasQualifyingCombination = conditions.subjectCombinations.some(
+          (combination) => {
+            // Check if all subjects in this combination have scores
+            const hasAllScores = combination.every(
+              (subject) =>
+                scores[subject] !== undefined &&
+                scores[subject] !== null &&
+                !isNaN(scores[subject])
+            );
+
+            if (!hasAllScores) return false;
+
+            // Calculate sum + priority
+            const sum = combination.reduce((acc, subject) => acc + scores[subject], 0);
+            return (sum + priorityPoints) >= (conditions.minTotalScore || 0);
+          }
+        );
+
+        if (!hasQualifyingCombination) {
           return false;
         }
       }

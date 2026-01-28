@@ -91,8 +91,8 @@ export class CmsController {
 
   // Post endpoints
   @Get('posts/search')
-  @ApiOperation({ 
-    summary: 'Search posts (Hybrid + Chunks)', 
+  @ApiOperation({
+    summary: 'Search posts (Hybrid + Chunks)',
     description: 'Advanced search combining Vector embeddings, chunking, and keyword matching',
     operationId: 'searchPosts'  // ← Thêm operationId để gen đúng tên method
   })
@@ -102,7 +102,7 @@ export class CmsController {
   @ApiQuery({ name: 'chunks', required: false, description: 'Use chunk-based search (default: true)', type: Boolean })
   @ApiResponse({ status: 200, description: 'Search results retrieved successfully' })
   async searchPosts(
-    @Query('q') q: string, 
+    @Query('q') q: string,
     @Query('limit') limit?: number,
     @Query('hybrid') hybrid?: string,
     @Query('chunks') chunks?: string
