@@ -106,6 +106,7 @@ export class VirtualFilterService {
       where: { sessionId },
       include: {
         student: true,
+        major: true,
       },
     });
 
@@ -144,6 +145,8 @@ export class VirtualFilterService {
           subjectScores,
           priorityPoints,
           formulaId,
+          application.admissionMethod,
+          { code: (application as any).major.code, name: (application as any).major.name },
         )
         : 0;
 

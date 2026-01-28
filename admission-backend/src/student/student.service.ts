@@ -281,6 +281,8 @@ export class StudentService {
         addPreferenceDto.subjectScores,
         Number(student.priorityPoints),
         formulaId,
+        addPreferenceDto.admissionMethod || 'dynamic',
+        { code: major.code, name: major.name },
       )
       : null;
 
@@ -315,6 +317,7 @@ export class StudentService {
     // Check if application exists and belongs to student
     const application = await this.prisma.application.findUnique({
       where: { id: preferenceId },
+      include: { major: true }
     });
 
     if (!application) {
@@ -411,6 +414,8 @@ export class StudentService {
           finalScores,
           Number(student.priorityPoints),
           formulaId,
+          updatePreferenceDto.admissionMethod || application.admissionMethod,
+          { code: (application as any).major?.code || '', name: (application as any).major?.name || '' },
         )
         : null;
 

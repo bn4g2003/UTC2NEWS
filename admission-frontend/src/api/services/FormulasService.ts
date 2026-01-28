@@ -11,10 +11,14 @@ export class FormulasService {
      * @returns any
      * @throws ApiError
      */
-    public static formulaControllerCreate(): CancelablePromise<any> {
+    public static formulaControllerCreate(
+        requestBody: any,
+    ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/formulas',
+            body: requestBody,
+            mediaType: 'application/json',
         });
     }
     /**
@@ -53,6 +57,7 @@ export class FormulasService {
      */
     public static formulaControllerUpdate(
         id: string,
+        requestBody: any,
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'PUT',
@@ -60,6 +65,8 @@ export class FormulasService {
             path: {
                 'id': id,
             },
+            body: requestBody,
+            mediaType: 'application/json',
         });
     }
     /**

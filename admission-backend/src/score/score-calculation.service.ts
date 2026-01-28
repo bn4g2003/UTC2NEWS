@@ -38,6 +38,8 @@ export class ScoreCalculationService {
     scores: SubjectScores,
     priorityPoints: number,
     formulaId: string,
+    admissionMethod: string = 'dynamic',
+    majorInfo?: { code: string; name: string },
   ): Promise<number> {
     const formula = await this.prisma.admissionFormula.findUnique({
       where: { id: formulaId },
@@ -62,7 +64,13 @@ export class ScoreCalculationService {
     });
 
     // Merge actual scores into context
-    Object.assign(context, scores);
+    Object.assign(context, scores, {
+      method: admissionMethod,
+      block: admissionMethod,
+      priorityPoints,
+      majorCode: majorInfo?.code || '',
+      majorName: majorInfo?.name || '',
+    });
 
     // Evaluate raw score
     let rawScore = 0;

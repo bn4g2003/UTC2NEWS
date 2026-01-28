@@ -6,6 +6,7 @@ import { ScoreCalculationService } from '../score/score-calculation.service';
 import { ParsedStudentData, ParsedPreferenceData } from './dto/parsed-student-data.dto';
 import { ImportResult } from './dto/import-result.dto';
 import { ValidationError } from './dto/validation-result.dto';
+import { ConfigService } from '../config/config.service';
 
 @Injectable()
 export class ImportService {
@@ -14,6 +15,7 @@ export class ImportService {
     private excelImportService: ExcelImportService,
     private validationService: ImportValidationService,
     private scoreCalculationService: ScoreCalculationService,
+    private configService: ConfigService,
   ) { }
 
   /**
@@ -190,7 +192,7 @@ export class ImportService {
           const conditions = quota?.conditions as any;
 
           // Get subject scores based on block
-          const blockSubjects = pref.block ? this.getSubjectsForBlock(pref.block) : null;
+          const blockSubjects = pref.block ? await this.getSubjectsForBlock(pref.block) : null;
           const subjectScores: any = {};
 
           if (blockSubjects && student.scores) {
@@ -213,6 +215,8 @@ export class ImportService {
               subjectScores,
               Number(student.priorityPoints),
               formulaId,
+              pref.block || pref.admissionMethod || 'dynamic',
+              { code: major.code, name: major.name },
             )
             : null;
 
@@ -262,21 +266,10 @@ export class ImportService {
   }
 
   /**
-   * Get subjects for a given block code
+   * Get subjects for a given block code from dynamic configuration
    */
-  private getSubjectsForBlock(block: string): string[] | null {
-    const blockMap: Record<string, string[]> = {
-      'A00': ['math', 'physics', 'chemistry'],
-      'A01': ['math', 'physics', 'english'],
-      'B00': ['math', 'chemistry', 'biology'],
-      'C00': ['literature', 'history', 'geography'],
-      'D01': ['math', 'literature', 'english'],
-      'D07': ['math', 'chemistry', 'english'],
-      'D08': ['math', 'biology', 'english'],
-      'D09': ['math', 'geography', 'english'],
-      'D10': ['math', 'history', 'english'],
-    };
-
+  private async getSubjectsForBlock(block: string): Promise<string[] | null> {
+    const blockMap = await this.configService.getSetting<Record<string, string[]>>('admission_blocks');
     return blockMap[block?.toUpperCase()] || null;
   }
 }

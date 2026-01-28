@@ -91,6 +91,7 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
       [
         createMenuItem('Người dùng', ROUTES.ADMIN.USERS, <UserOutlined />, undefined, PERMISSIONS.USERS.READ),
         createMenuItem('Vai trò & Quyền', ROUTES.ADMIN.ROLES, <TeamOutlined />, undefined, PERMISSIONS.ROLES.READ),
+        createMenuItem('Cài đặt hệ thống', ROUTES.ADMIN.SETTINGS, <SettingOutlined />, undefined, PERMISSIONS.CONFIG.READ),
       ]
     ),
 
@@ -182,7 +183,7 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
     setSelectedKeys([pathname]);
 
     // Auto-expand parent menu if child is selected
-    if (pathname === ROUTES.ADMIN.USERS || pathname === ROUTES.ADMIN.ROLES) {
+    if (pathname === ROUTES.ADMIN.USERS || pathname === ROUTES.ADMIN.ROLES || pathname === ROUTES.ADMIN.SETTINGS) {
       setOpenKeys(['system']);
     } else if (
       pathname === ROUTES.ADMIN.SESSIONS ||
@@ -258,25 +259,25 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
         }}
       >
         {collapsed ? (
-          <img 
-            src="/logo.png" 
-            alt="UTC2" 
-            style={{ 
+          <img
+            src="/logo.png"
+            alt="UTC2"
+            style={{
               height: 40,
               width: 'auto',
               objectFit: 'contain'
-            }} 
+            }}
           />
         ) : (
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <img 
-              src="/logo.png" 
-              alt="UTC2" 
-              style={{ 
+            <img
+              src="/logo.png"
+              alt="UTC2"
+              style={{
                 height: 40,
                 width: 'auto',
                 objectFit: 'contain'
-              }} 
+              }}
             />
             <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
               <span style={{ color: 'white', fontSize: 14, fontWeight: 700 }}>UTC2</span>

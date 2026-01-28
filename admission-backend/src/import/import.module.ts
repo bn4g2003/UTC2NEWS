@@ -6,11 +6,12 @@ import { ImportController } from './import.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { RBACModule } from '../rbac/rbac.module';
 import { ScoreModule } from '../score/score.module';
+import { ConfigModule } from '../config/config.module';
 
 @Module({
-  imports: [PrismaModule, RBACModule, ScoreModule],
+  imports: [PrismaModule, RBACModule, ScoreModule, ConfigModule],
   controllers: [ImportController],
   providers: [ExcelImportService, ImportValidationService, ImportService],
   exports: [ExcelImportService, ImportValidationService, ImportService],
 })
-export class ImportModule {}
+export class ImportModule { }

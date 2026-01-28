@@ -49,9 +49,24 @@ export class ConfigService {
       description: 'Enable or disable email notifications',
       validator: (value: boolean) => typeof value === 'boolean',
     },
+    admission_blocks: {
+      value: {
+        'A00': ['math', 'physics', 'chemistry'],
+        'A01': ['math', 'physics', 'english'],
+        'B00': ['math', 'chemistry', 'biology'],
+        'C00': ['literature', 'history', 'geography'],
+        'D01': ['math', 'literature', 'english'],
+        'D07': ['math', 'chemistry', 'english'],
+        'D08': ['math', 'biology', 'english'],
+        'D09': ['math', 'geography', 'english'],
+        'D10': ['math', 'history', 'english'],
+      },
+      description: 'Definitions of admission blocks and their required subjects',
+      validator: (value: any) => typeof value === 'object' && value !== null,
+    },
   };
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async getSetting<T = any>(key: string): Promise<T> {
     const setting = await this.prisma.settings.findUnique({

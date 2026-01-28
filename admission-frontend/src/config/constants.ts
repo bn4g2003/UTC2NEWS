@@ -87,6 +87,7 @@ export const ROUTES = {
       FAQS: '/faqs',
       MEDIA: '/media',
     },
+    SETTINGS: '/settings',
   },
   // Auth routes
   AUTH: {

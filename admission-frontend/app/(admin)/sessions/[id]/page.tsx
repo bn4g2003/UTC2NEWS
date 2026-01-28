@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, Edit, Trash2, Settings, FlaskConical, Users, BookOpen, GraduationCap } from 'lucide-react';
+import { ArrowLeft, Plus, Edit, Trash2, Settings, FlaskConical, Users, BookOpen, GraduationCap, Info as LucideInfo } from 'lucide-react';
 import { DataGrid } from '@/components/admin/DataGrid';
 import { FormModal } from '@/components/admin/FormModal';
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
@@ -201,10 +201,10 @@ export default function SessionDetailsPage({ params }: SessionDetailsPageProps) 
     const handleSubmitFormula = async (data: any) => {
         try {
             if (selectedFormula && selectedFormula.id) {
-                await FormulasService.formulaControllerUpdate(selectedFormula.id);
+                await FormulasService.formulaControllerUpdate(selectedFormula.id, data);
                 message.success('Cập nhật công thức thành công');
             } else {
-                await FormulasService.formulaControllerCreate();
+                await FormulasService.formulaControllerCreate(data);
                 message.success('Tạo công thức mới thành công');
             }
             await loadData();
@@ -481,10 +481,25 @@ export default function SessionDetailsPage({ params }: SessionDetailsPageProps) 
                         { code: 'history', label: 'Sử' },
                         { code: 'geography', label: 'Địa' },
                         { code: 'civic_education', label: 'GDCD' },
+                        { code: 'method', label: 'Tổ hợp (Mã)' },
+                        { code: 'majorCode', label: 'Mã ngành' },
+                        { code: 'majorName', label: 'Tên ngành' },
+                        { code: 'priorityPoints', label: 'Điểm ưu tiên gốc' },
                     ];
 
                     const FORMULA_FUNCTIONS = [
-                        { code: 'max(a, b)', label: 'Max (Lấy số lớn nhất)' },
+                        { code: 'max()', label: 'Max' },
+                        { code: 'min()', label: 'Min' },
+                        { code: 'avg()', label: 'Avg' },
+                        { code: 'round(,2)', label: 'Round' },
+                        { code: 'abs()', label: 'Abs' },
+                        { code: 'ceil()', label: 'Ceil' },
+                        { code: 'floor()', label: 'Floor' },
+                    ];
+
+                    const FORMULA_EXAMPLES = [
+                        { code: "method == 'A00' ? (math + physics + chemistry) : (method == 'D01' ? (math + literature + english) : 0)", label: 'Xét 2 tổ hợp (A00 hoặc D01) - Ghi rõ' },
+                        { code: "math + physics + chemistry + literature + english + history", label: 'Tổng tất cả môn (nhanh)' },
                     ];
 
                     const insertVariable = (code: string) => {
@@ -495,15 +510,6 @@ export default function SessionDetailsPage({ params }: SessionDetailsPageProps) 
 
                     return (
                         <div className="space-y-4 py-4">
-                            <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-md text-sm mb-2 flex gap-2 items-start">
-                                <span className="text-xl">ℹ️</span>
-                                <div>
-                                    <b>Lưu ý quan trọng:</b> Chỉ nhập công thức tính <b>điểm tổng môn học</b> (Ví dụ: <code>math + physics + chemistry</code>).
-                                    <br />
-                                    Hệ thống sẽ <b>tự động cộng điểm ưu tiên</b> theo quy chế hiện hành (giảm dần nếu tổng điểm ≥ 22.5).
-                                </div>
-                            </div>
-
                             <Form.Item label="Tên công thức" required>
                                 <Input
                                     placeholder="Ví dụ: Toán nhân đôi, Khối A00..."
@@ -512,41 +518,63 @@ export default function SessionDetailsPage({ params }: SessionDetailsPageProps) 
                                 />
                             </Form.Item>
 
-                            <div className="bg-slate-50 p-3 rounded-md border border-slate-200">
-                                <label className="text-sm font-medium text-gray-700 mb-2 block">Biến & Hàm (Click để thêm):</label>
-                                <div className="flex flex-wrap gap-2 mb-2">
-                                    {FORMULA_VARIABLES.map(v => (
-                                        <Tag
-                                            key={v.code}
-                                            color="blue"
-                                            className="cursor-pointer select-none hover:scale-105 transition-transform"
-                                            onClick={() => insertVariable(v.code)}
-                                        >
-                                            {v.label}
-                                        </Tag>
-                                    ))}
+                            <div className="bg-slate-50 p-2 rounded-md border border-slate-200">
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                                    <div>
+                                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Biến số</label>
+                                        <div className="flex flex-wrap gap-1">
+                                            {FORMULA_VARIABLES.map(v => (
+                                                <Tag
+                                                    key={v.code}
+                                                    color="blue"
+                                                    className="cursor-pointer m-0 text-[10px] px-1 line-height-1"
+                                                    onClick={() => insertVariable(v.code)}
+                                                >
+                                                    {v.label}
+                                                </Tag>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Hàm toán học</label>
+                                        <div className="flex flex-wrap gap-1">
+                                            {FORMULA_FUNCTIONS.map(v => (
+                                                <Tag
+                                                    key={v.code}
+                                                    color="purple"
+                                                    className="cursor-pointer m-0 text-[10px] px-1"
+                                                    onClick={() => insertVariable(v.code)}
+                                                >
+                                                    {v.label}
+                                                </Tag>
+                                            ))}
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200">
-                                    {FORMULA_FUNCTIONS.map(v => (
-                                        <Tag
-                                            key={v.code}
-                                            color="purple"
-                                            className="cursor-pointer select-none hover:scale-105 transition-transform"
-                                            onClick={() => insertVariable(v.code)}
-                                        >
-                                            ƒ {v.label}
-                                        </Tag>
-                                    ))}
+                                <div className="mt-2 pt-2 border-t border-slate-200">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Mẫu công thức (Click để chép)</label>
+                                    <div className="space-y-1">
+                                        {FORMULA_EXAMPLES.map((ex, idx) => (
+                                            <div
+                                                key={idx}
+                                                className="text-[10px] bg-white border border-slate-100 p-1 rounded cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition-colors"
+                                                onClick={() => form.setValue('formula', ex.code)}
+                                            >
+                                                <span className="font-semibold text-blue-600">[{ex.label}]:</span>
+                                                <code className="ml-1 text-gray-500">{ex.code}</code>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
 
-                            <Form.Item label="Biểu thức tính điểm" required help={<div className="text-xs text-gray-500 mt-1">Ví dụ: <code>math * 2 + physics + chemistry</code> hoặc <code>(math + literature + english) / 3</code></div>}>
+                            <Form.Item label="Biểu thức tính điểm" required className="mb-2">
                                 <Input.TextArea
                                     placeholder="Nhập biểu thức tính toán..."
-                                    rows={4}
+                                    rows={3}
                                     value={form.watch('formula')}
                                     onChange={(e) => form.setValue('formula', e.target.value)}
-                                    className="font-mono text-sm"
+                                    className="font-mono text-xs"
                                 />
                             </Form.Item>
 
@@ -557,6 +585,18 @@ export default function SessionDetailsPage({ params }: SessionDetailsPageProps) 
                                     onChange={(e) => form.setValue('description', e.target.value)}
                                 />
                             </Form.Item>
+
+                            <div className="bg-blue-50/50 border border-blue-100 text-blue-600 px-3 py-2 rounded text-[11px] leading-relaxed mt-4">
+                                <p className="font-semibold mb-1 flex items-center gap-1">
+                                    <LucideInfo className="w-3 h-3" /> GHI CHÚ QUY CHẾ:
+                                </p>
+                                <ul className="list-disc list-inside space-y-0.5">
+                                    <li>Hệ thống <b>TỰ ĐỘNG CỘNG ĐIỂM ƯU TIÊN</b> khi lọc ảo - <b>KHÔNG</b> cần đưa vào công thức.</li>
+                                    <li>Công thức trên chỉ dùng để tính <b>TỔNG ĐIỂM 3 MÔN</b> (hoặc môn nhân hệ số).</li>
+                                    <li>Sử dụng cấu trúc <code>điều_kiện ? đúng : sai</code> để viết công thức cho nhiều tổ hợp.</li>
+                                    <li>Các môn không nằm trong tổ hợp thí sinh chọn sẽ tự động bằng 0.</li>
+                                </ul>
+                            </div>
                         </div>
                     );
                 }}

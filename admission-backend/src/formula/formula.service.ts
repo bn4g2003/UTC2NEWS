@@ -9,6 +9,15 @@ export class FormulaService {
     constructor(private readonly prisma: PrismaService) {
         // Đăng ký các hàm tùy chỉnh
         this.parser.functions.max = (...args: number[]) => Math.max(...args);
+        this.parser.functions.min = (...args: number[]) => Math.min(...args);
+        this.parser.functions.abs = (val: number) => Math.abs(val);
+        this.parser.functions.round = (val: number, precision: number = 2) => {
+            const factor = Math.pow(10, precision);
+            return Math.round(val * factor) / factor;
+        };
+        this.parser.functions.ceil = (val: number) => Math.ceil(val);
+        this.parser.functions.floor = (val: number) => Math.floor(val);
+        this.parser.functions.avg = (...args: number[]) => args.length > 0 ? args.reduce((a, b) => a + b, 0) / args.length : 0;
 
         // Hàm tính điểm xét tuyển theo quy chế (có giảm trừ điểm ưu tiên nếu điểm cao)
         // Cú pháp: effective_score(tổng_điểm_thô, điểm_ưu_tiên)
@@ -17,7 +26,6 @@ export class FormulaService {
                 return total + priority;
             } else {
                 // Công thức quy chế mới: Điểm ƯT = [(30 - Tổng điểm đạt được) / 7.5] × Mức điểm ưu tiên
-                // Tránh trường hợp total > 30 gây điểm âm (dù hiếm)
                 const adjustedPriority = Math.max(0, ((30 - total) / 7.5) * priority);
                 return total + adjustedPriority;
             }
