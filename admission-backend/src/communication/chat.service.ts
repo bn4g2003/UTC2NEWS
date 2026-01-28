@@ -7,6 +7,13 @@ import { CreateRoomDto } from './dto/create-room.dto';
 export class ChatService {
   constructor(private prisma: PrismaService) { }
 
+  async getUser(userId: string) {
+    return this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, username: true, fullName: true },
+    });
+  }
+
   async createRoom(createRoomDto: CreateRoomDto, creatorId: string) {
     const { name, type, participantIds, isPublic, description } = createRoomDto;
 

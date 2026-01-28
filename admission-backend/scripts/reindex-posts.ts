@@ -55,7 +55,7 @@ async function reindexAllPosts() {
 
   const embeddings = new GoogleGenerativeAIEmbeddings({
     apiKey: apiKey,
-    modelName: "models/text-embedding-004",
+    modelName: "models/gemini-embedding-001",
   });
 
   const chunkingService = new ChunkingService();

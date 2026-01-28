@@ -45,6 +45,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const payload = this.jwtService.verify(token);
       const userId = payload.sub;
 
+      // Validate user existence
+      const user = await this.chatService.getUser(userId);
+      if (!user) {
+        console.warn(`User ${userId} not found, disconnecting socket ${client.id}`);
+        client.disconnect();
+        return;
+      }
+
       client.data.userId = userId;
       this.userSockets.set(userId, client.id);
 

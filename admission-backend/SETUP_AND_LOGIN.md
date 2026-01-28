@@ -13,6 +13,7 @@ npx prisma migrate dev
 # Seed database với dữ liệu mặc định
 npx prisma db seed
 ```
+npx ts-node prisma/vectorize.ts
 
 ## 2. Thông tin đăng nhập mặc định
 

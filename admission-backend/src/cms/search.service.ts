@@ -17,9 +17,14 @@ export class SearchService {
             this.logger.warn('GOOGLE_API_KEY is not set. Vector search will not work.');
         }
 
+        // Gemini Embedding Model Configuration
+        // Model: models/gemini-embedding-001
+        // Dimension: 3072 (NOT 768!)
+        // Note: pgvector indexes (ivfflat, hnsw) only support up to 2000 dimensions
+        // Therefore, we use sequential scan for similarity search (no index)
         this.embeddings = new GoogleGenerativeAIEmbeddings({
             apiKey: apiKey,
-            modelName: "models/text-embedding-004",
+            modelName: "models/gemini-embedding-001",
         });
     }
 
@@ -51,7 +56,7 @@ export class SearchService {
 
             // 3. Chia content thành chunks
             const chunks = this.chunkingService.smartChunk(content, 500, 100);
-            
+
             this.logger.log(`Created ${chunks.length} chunks for post ${postId}`);
 
             // 4. Tạo embedding cho từng chunk
@@ -116,16 +121,16 @@ export class SearchService {
             const queryVector = await this.embeddings.embedQuery(query);
             const vectorString = `[${queryVector.join(',')}]`;
 
-            // Threshold động:
-            // - Query ngắn (< 20 chars): 0.50 (50%)
-            // - Query trung bình (20-50 chars): 0.40 (40%)
-            // - Query dài (> 50 chars): 0.30 (30%)
+            // Threshold động (Đã hạ thấp để bắt kết quả tốt hơn):
+            // - Query ngắn (< 20 chars): 0.35 (35%)
+            // - Query trung bình (20-50 chars): 0.30 (30%)
+            // - Query dài (> 50 chars): 0.25 (25%)
             const queryLength = query.trim().length;
-            let threshold = 0.50;
+            let threshold = 0.35;
             if (queryLength > 50) {
-                threshold = 0.30;
+                threshold = 0.25;
             } else if (queryLength > 20) {
-                threshold = 0.40;
+                threshold = 0.30;
             }
 
             this.logger.log(`Chunk search: query length=${queryLength}, threshold=${threshold}`);
@@ -162,7 +167,7 @@ export class SearchService {
 
             // Group by post và lấy chunk có similarity cao nhất
             const postMap = new Map();
-            
+
             chunkResults.forEach(result => {
                 const existing = postMap.get(result.postId);
                 if (!existing || result.similarity > existing.similarity) {
@@ -213,7 +218,7 @@ export class SearchService {
             // Order by distance ASC (smaller distance = more similar)
             // Cosine distance range is [0, 2]. 0 is identical.
             // Similarity = 1 - distance (roughly for normalized vectors)
-            
+
             // Threshold 0.50 = 50% similarity để chỉ lấy kết quả có độ chính xác cao
             // Lọc ngay từ database để hiệu quả hơn
             const results = await this.prisma.$queryRawUnsafe<any[]>(
@@ -222,7 +227,7 @@ export class SearchService {
                  FROM posts
                  WHERE status = 'published'
                  AND embedding IS NOT NULL
-                 AND 1 - (embedding <=> $1::vector) > 0.64 
+                 AND 1 - (embedding <=> $1::vector) > 0.45 
                  ORDER BY similarity DESC
                  LIMIT $2`,
                 vectorString,
@@ -254,7 +259,7 @@ export class SearchService {
         try {
             // Normalize query: trim và lowercase
             const normalizedQuery = query.trim().toLowerCase();
-            
+
             // Nếu query quá ngắn (< 3 ký tự), chỉ dùng keyword search
             if (normalizedQuery.length < 3) {
                 this.logger.log(`Query too short (${normalizedQuery.length} chars), using keyword search only`);
@@ -263,15 +268,15 @@ export class SearchService {
 
             // 1. Chunk-based vector search với threshold động
             const chunkResults = await this.searchWithChunks(query, limit * 3);
-            
+
             // 2. Keyword search
             const keywordResults = await this.keywordSearch(query, limit * 3);
-            
+
             this.logger.log(`Hybrid search: ${chunkResults.length} vector + ${keywordResults.length} keyword results`);
-            
+
             // 3. Merge và rank
             const merged = this.mergeAndRank(chunkResults, keywordResults);
-            
+
             if (merged.length === 0) {
                 this.logger.log('No results found');
                 return [];
@@ -296,29 +301,31 @@ export class SearchService {
                 this.logger.log('Good match found → Medium-high threshold (70%)');
             } else if (topScore >= 0.70) {
                 // Kết quả khá (≥70%) → Lấy kết quả trung bình (≥55%)
-                threshold = 0.55;
+                threshold = 0.60;
                 maxResults = Math.min(limit, 10);
-                this.logger.log('Decent match found → Medium threshold (55%)');
-            } else if (topScore >= 0.55) {
-                // Kết quả trung bình (≥55%) → Lấy kết quả chấp nhận được (≥40%)
-                threshold = 0.40;
-                maxResults = limit;
-                this.logger.log('Average match found → Low threshold (40%)');
+                this.logger.log('Decent match found → Medium threshold (60%)');
+            } else if (topScore >= 0.50) {
+                // Kết quả trung bình (≥50%) → Lấy kết quả chấp nhận được (≥45%)
+                // Giới hạn số lượng vì độ tin cậy không cao
+                threshold = 0.45;
+                maxResults = Math.min(limit, 6);
+                this.logger.log('Average match found → Low threshold (45%), capped at 6 results');
             } else {
-                // Kết quả yếu (<55%) → Lấy tất cả kết quả có (≥30%)
-                threshold = 0.30;
-                maxResults = limit;
-                this.logger.log('Weak match found → Very low threshold (30%)');
+                // Kết quả yếu (<50%) → Lấy tất cả kết quả có liên quan thấp
+                threshold = 0.35;
+                maxResults = Math.min(limit, 5); // Giới hạn 5 để tránh spam kết quả rác
+                this.logger.log('Weak match found → Very low threshold (35%)');
             }
 
-            // Lọc theo threshold động
+            // Apply adaptive threshold filtering
             const filtered = merged.filter(r => {
                 const score = r.finalScore || r.similarity || 0;
                 return score >= threshold;
             });
-            
+            // const filtered = merged;
+
             this.logger.log(`After adaptive filtering: ${filtered.length} results (threshold: ${(threshold * 100).toFixed(0)}%)`);
-            
+
             // Format kết quả với similarity percent và metadata
             const results = filtered.slice(0, maxResults).map(r => ({
                 ...r,
@@ -350,13 +357,13 @@ export class SearchService {
         try {
             // 1. Vector search (lấy nhiều hơn để merge)
             const vectorResults = await this.search(query, limit * 2);
-            
+
             // 2. Keyword search
             const keywordResults = await this.keywordSearch(query, limit * 2);
-            
+
             // 3. Merge và rank lại
             const merged = this.mergeAndRank(vectorResults, keywordResults);
-            
+
             // Format kết quả
             return merged.slice(0, limit).map(r => ({
                 ...r,
@@ -374,7 +381,7 @@ export class SearchService {
      */
     private async keywordSearch(query: string, limit = 5): Promise<any[]> {
         const normalizedQuery = query.trim().toLowerCase();
-        
+
         const results = await this.prisma.post.findMany({
             where: {
                 status: 'published',
@@ -446,38 +453,38 @@ export class SearchService {
      */
     private mergeAndRank(vectorResults: any[], keywordResults: any[]) {
         const scoreMap = new Map();
-        
+
         // Vector results: weight 0.7
         vectorResults.forEach((r, idx) => {
             const vectorScore = r.similarity || 0;
             const positionScore = (vectorResults.length - idx) / vectorResults.length;
             const finalScore = (vectorScore * 0.7) + (positionScore * 0.1);
-            
-            scoreMap.set(r.id, { 
-                ...r, 
+
+            scoreMap.set(r.id, {
+                ...r,
                 finalScore,
                 matchType: 'vector'
             });
         });
-        
+
         // Keyword results: weight 0.3 (boost nếu trùng)
         keywordResults.forEach((r, idx) => {
             const existing = scoreMap.get(r.id);
             const positionScore = (keywordResults.length - idx) / keywordResults.length;
-            
+
             if (existing) {
                 // Boost nếu match cả 2 phương pháp
                 existing.finalScore += 0.3 + (positionScore * 0.1);
                 existing.matchType = 'hybrid';
             } else {
-                scoreMap.set(r.id, { 
-                    ...r, 
+                scoreMap.set(r.id, {
+                    ...r,
                     finalScore: 0.3 + (positionScore * 0.1),
                     matchType: 'keyword'
                 });
             }
         });
-        
+
         return Array.from(scoreMap.values())
             .sort((a, b) => b.finalScore - a.finalScore);
     }
