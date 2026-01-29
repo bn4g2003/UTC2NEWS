@@ -104,7 +104,7 @@ services:
       EMAIL_FROM: "Trường Đại học Giao thông Vận tải TP.HCM <tuyensinh@utc2.edu.vn>"
 
       # Google API
-      GOOGLE_API_KEY: AIzaSyAJTPkcoHx7C8fUCuoWJsSaVHOvn2Cdur0
+      GOOGLE_API_KEY: AIzaSyCFJk40GkhaNOhQHDVj577TQVagMXPIxTM
 
       # 100ms Video
       HMS_ACCESS_KEY: 696d2c2d63cbbe924eef858b

@@ -54,27 +54,30 @@ export default function PostDetailPage() {
       setIsLoading(true);
       setNotFound(false);
 
+      // 1. Fetch posts list (which doesn't have content anymore)
       const postsResponse = await CmsService.cmsControllerFindAllPosts('true');
       const posts = Array.isArray(postsResponse) ? postsResponse : [];
 
-      const foundPost = posts.find((p: Post) => p.slug === slug);
+      const foundPostSummary = posts.find((p: Post) => p.slug === slug);
 
-      if (!foundPost) {
+      if (!foundPostSummary) {
         setNotFound(true);
         return;
       }
 
-      setPost(foundPost);
+      // 2. Fetch FULL post content using ID
+      const fullPost = await CmsService.cmsControllerFindPostById(foundPostSummary.id);
+      setPost(fullPost);
 
       // Related posts
       const related = posts
-        .filter((p: Post) => p.id !== foundPost.id && p.category?.id === foundPost.category?.id)
+        .filter((p: Post) => p.id !== foundPostSummary.id && p.category?.id === foundPostSummary.category?.id)
         .slice(0, 3);
       setRelatedPosts(related);
 
       // Recent posts
       const recent = posts
-        .filter((p: Post) => p.id !== foundPost.id)
+        .filter((p: Post) => p.id !== foundPostSummary.id)
         .sort((a: Post, b: Post) => {
           const dateA = new Date(a.publishedAt || a.createdAt).getTime();
           const dateB = new Date(b.publishedAt || b.createdAt).getTime();

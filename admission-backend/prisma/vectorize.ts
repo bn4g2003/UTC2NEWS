@@ -20,9 +20,10 @@ async function main() {
     // Initialize embedding model
     const embeddings = new GoogleGenerativeAIEmbeddings({
         apiKey: apiKey,
-        modelName: "models/gemini-embedding-001",
-        taskType: TaskType.RETRIEVAL_DOCUMENT,
-    });
+        modelName: "text-embedding-004",
+    } as any);
+
+    console.log('🔍 Searching for posts without embeddings...');
 
     // Fetch ONLY published posts WITHOUT embeddings (Raw SQL for vector field)
     const postsToIndex = await prisma.$queryRawUnsafe<{ id: string }[]>(
@@ -48,30 +49,51 @@ async function main() {
     let failCount = 0;
 
     for (const post of posts) {
-        try {
-            console.log(`Processing: "${post.title}"...`);
-            const textToEmbed = `${post.title}\n\n${post.content}`;
+        let retries = 0;
+        const maxRetries = 3;
+        let success = false;
 
-            const vector = await embeddings.embedQuery(textToEmbed);
-            const vectorString = `[${vector.join(',')}]`;
+        while (retries < maxRetries && !success) {
+            try {
+                console.log(`\n📄 Processing [${successCount + failCount + 1}/${posts.length}]: "${post.title}"...${retries > 0 ? ` (Retry ${retries})` : ''}`);
+                const textToEmbed = `${post.title}\n\n${post.content}`;
 
-            // Update post with embedding
-            await prisma.$executeRawUnsafe(
-                `UPDATE posts SET embedding = $1::vector WHERE id = $2`,
-                vectorString,
-                post.id
-            );
+                console.log(`   📡 Calling Google API for embeddings (3072 dimensions)...`);
+                const vector = await embeddings.embedQuery(textToEmbed);
+                console.log(`   ✅ Received vector (${vector.length} dimensions)`);
 
-            console.log(`  ✅ Vectorized successfully.`);
-            successCount++;
+                const vectorString = `[${vector.join(',')}]`;
 
-            // Wait 4 seconds for Gemini Free tier (max 15 RPM)
-            await new Promise(r => setTimeout(r, 4000));
-        } catch (error) {
-            console.error(`  ❌ Failed to vectorize post ${post.id}:`, error);
+                // Update post with embedding
+                console.log(`   💾 Saving to Database...`);
+                await prisma.$executeRawUnsafe(
+                    `UPDATE posts SET embedding = $1::vector WHERE id = $2`,
+                    vectorString,
+                    post.id
+                );
+
+                console.log(`  ✅ Vectorized successfully.`);
+                successCount++;
+                success = true;
+
+                // Wait 10 seconds for Gemini Free tier (safety increase)
+                await new Promise(r => setTimeout(r, 10000));
+            } catch (error: any) { // Explicitly type error as 'any' or 'unknown'
+                if (error.status === 429) {
+                    console.error(`  ⚠️ Quota exceeded (429). Waiting 30 seconds before retry...`);
+                    await new Promise(r => setTimeout(r, 30000));
+                    retries++;
+                } else {
+                    console.error(`  ❌ Failed to vectorize post ${post.id}:`, error.message);
+                    failCount++;
+                    break;
+                }
+            }
+        }
+
+        if (!success && retries === maxRetries) {
+            console.error(`  ❌ Max retries reached for post ${post.id}. Skipping.`);
             failCount++;
-            // Wait longer on error
-            await new Promise(r => setTimeout(r, 10000));
         }
     }
 

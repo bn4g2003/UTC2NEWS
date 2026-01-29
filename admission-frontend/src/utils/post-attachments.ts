@@ -32,5 +32,6 @@ export const parseAttachments = (content: string): Attachment[] => {
 };
 
 export const stripAttachments = (content: string) => {
+    if (!content) return '';
     return content.replace(/<div id="post-attachments-data" style="display:none" data-b64=".*?"><\/div>/g, '');
 };

@@ -17,11 +17,10 @@ export class SearchService {
             this.logger.warn('GOOGLE_API_KEY is not set. Vector search will not work.');
         }
 
-        // Gemini Embedding Model Configuration
-        // Sử dụng model gemini-embedding-001 với 3072 dimensions theo yêu cầu.
+        // Sử dụng model text-embedding-004 (768 dimensions)
         this.embeddings = new GoogleGenerativeAIEmbeddings({
             apiKey: apiKey,
-            modelName: "models/gemini-embedding-001",
+            modelName: "text-embedding-004",
         } as any);
     }
 

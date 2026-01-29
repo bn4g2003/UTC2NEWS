@@ -39,7 +39,9 @@ export function NewsCard({ post }: NewsCardProps) {
     if (!post.content) return '';
 
     // Simple strip of markdown/html for preview
-    let text = post.content
+    // Ensure content is a string before calling replace
+    const content = String(post.content);
+    let text = content
       .replace(/<[^>]*>?/gm, '') // Strip HTML
       .replace(/[#*`_~\[\]()]/g, '') // Strip Markdown syntax chars
       .replace(/\s+/g, ' ') // Collapse whitespace
