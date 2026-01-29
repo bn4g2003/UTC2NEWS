@@ -127,6 +127,14 @@ export class CmsService {
         postData.publishedAt = new Date();
       }
 
+      // Add missing fields
+      if (data.excerpt) {
+        postData.excerpt = data.excerpt;
+      }
+      if (data.featuredImage) {
+        postData.featuredImage = data.featuredImage;
+      }
+
       const post = await this.prisma.post.create({
         data: postData,
         include: {

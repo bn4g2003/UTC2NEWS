@@ -406,10 +406,16 @@ export default function PostsPage() {
           <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
             Content <span style={{ color: 'red' }}>*</span>
           </label>
-          <RichTextEditor
-            value={form.watch('content')}
-            onChange={(value) => form.setValue('content', value)}
-            status={form.formState.errors.content ? 'error' : ''}
+          <Controller
+            name="content"
+            control={form.control}
+            render={({ field }) => (
+              <RichTextEditor
+                value={field.value}
+                onChange={field.onChange}
+                status={form.formState.errors.content ? 'error' : ''}
+              />
+            )}
           />
           {form.formState.errors.content && (
             <div style={{ color: 'red', fontSize: '12px', marginTop: '4px' }}>
