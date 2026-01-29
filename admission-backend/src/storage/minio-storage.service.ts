@@ -101,9 +101,16 @@ export class MinioStorageService implements OnModuleInit {
       );
 
       // Generate public URL instead of presigned URL
-      const useSSL = process.env.MINIO_USE_SSL === 'true';
-      const protocol = useSSL ? 'https' : 'http';
-      const url = `${protocol}://${this.publicEndpoint}/${this.bucketName}/${fileKey}`;
+      const publicUrl = process.env.MINIO_PUBLIC_URL;
+      let url: string;
+
+      if (publicUrl) {
+        url = `${publicUrl}/${this.bucketName}/${fileKey}`;
+      } else {
+        const useSSL = process.env.MINIO_USE_SSL === 'true';
+        const protocol = useSSL ? 'https' : 'http';
+        url = `${protocol}://${this.publicEndpoint}/${this.bucketName}/${fileKey}`;
+      }
 
       this.logger.log(`File uploaded successfully: ${fileKey}`);
       this.logger.log(`Public URL: ${url}`);
@@ -153,41 +160,41 @@ export class MinioStorageService implements OnModuleInit {
         fileKey,
         expirySeconds,
       );
-      
+
       this.logger.log(`Original MinIO URL: ${url}`);
-      
+
       // Replace internal Docker hostname with public endpoint for browser access
       const useSSL = process.env.MINIO_USE_SSL === 'true';
       const protocol = useSSL ? 'https' : 'http';
       const internalEndpoint = process.env.MINIO_ENDPOINT || 'localhost';
       const internalPort = process.env.MINIO_PORT || '9000';
-      
+
       // Try multiple replacement patterns to handle different URL formats
       let publicUrl = url;
-      
+
       // Pattern 1: http://minio:9000/...
       publicUrl = publicUrl.replace(
         `${protocol}://${internalEndpoint}:${internalPort}`,
         `${protocol}://${this.publicEndpoint}`
       );
-      
+
       // Pattern 2: minio:9000/... (missing protocol)
       publicUrl = publicUrl.replace(
         `${internalEndpoint}:${internalPort}`,
         this.publicEndpoint
       );
-      
+
       // Pattern 3: minio9000/... (missing colon)
       publicUrl = publicUrl.replace(
         `${internalEndpoint}${internalPort}`,
         this.publicEndpoint
       );
-      
+
       // Ensure URL has protocol
       if (!publicUrl.startsWith('http://') && !publicUrl.startsWith('https://')) {
         publicUrl = `${protocol}://${publicUrl}`;
       }
-      
+
       this.logger.log(`Public URL: ${publicUrl}`);
       return publicUrl;
     } catch (error) {

@@ -18,14 +18,11 @@ export class SearchService {
         }
 
         // Gemini Embedding Model Configuration
-        // Model: models/gemini-embedding-001
-        // Dimension: 3072 (NOT 768!)
-        // Note: pgvector indexes (ivfflat, hnsw) only support up to 2000 dimensions
-        // Therefore, we use sequential scan for similarity search (no index)
+        // Sử dụng model gemini-embedding-001 với 3072 dimensions theo yêu cầu.
         this.embeddings = new GoogleGenerativeAIEmbeddings({
             apiKey: apiKey,
             modelName: "models/gemini-embedding-001",
-        });
+        } as any);
     }
 
     /**

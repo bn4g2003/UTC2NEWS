@@ -13,7 +13,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U admission"]
+      test: [ "CMD-SHELL", "pg_isready -U admission" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -29,7 +29,7 @@ services:
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -49,7 +49,7 @@ services:
     volumes:
       - minio_data:/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
       interval: 30s
       timeout: 20s
       retries: 3
@@ -57,7 +57,7 @@ services:
       - admission-network
 
   backend:
-    build: 
+    build:
       context: ./admission-backend
       dockerfile: Dockerfile
     container_name: admission-backend
@@ -71,7 +71,7 @@ services:
       POSTGRES_PORT: 5432
       # Update host to 'postgres'
       DATABASE_URL: postgresql://admission:admission123@postgres:5432/admission_db?schema=public
-      
+
       # Update host to 'minio'
       MINIO_ENDPOINT: minio
       MINIO_PORT: 9000
@@ -82,19 +82,19 @@ services:
       MINIO_USE_SSL: "false"
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin123
-      
+
       # Update host to 'redis'
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: redis123
-      
+
       PORT: 3000
       FRONTEND_URL: http://localhost:3001
-      
+
       # Security
       JWT_SECRET: your-secret-key-change-in-production
       JWT_EXPIRATION: 24h
-      
+
       # Email Real Config
       EMAIL_HOST: smtp.gmail.com
       EMAIL_PORT: 587
@@ -102,10 +102,10 @@ services:
       EMAIL_USER: nhatbangnguyenhet@gmail.com
       EMAIL_PASSWORD: "zznq juqk vynh dszu"
       EMAIL_FROM: "Trường Đại học Giao thông Vận tải TP.HCM <tuyensinh@utc2.edu.vn>"
-      
+
       # Google API
-      GOOGLE_API_KEY: AIzaSyDfePk9op045GBQC9dEbXjR0K2h7sPrlOY
-      
+      GOOGLE_API_KEY: AIzaSyAJTPkcoHx7C8fUCuoWJsSaVHOvn2Cdur0
+
       # 100ms Video
       HMS_ACCESS_KEY: 696d2c2d63cbbe924eef858b
       HMS_SECRET: JmRarG34PSkftHZ1FFBdYiS9XxKnWMgi-vnBEM1jzbRcqso_LoGDowEHXW9b7k1adVz3QZLaA7fdQJvXZqnXoQGyvMiytaiXcTJI5tYcm30vCNWydZg_d-yDFKZ5qZPDlzVx4pa5YvWNPI3nTuE_S9Ma3VZ-BVaooas2kFSW7rU=
@@ -148,6 +148,7 @@ volumes:
   postgres_data:
   redis_data:
   minio_data:
+
 
 networks:
   admission-network:

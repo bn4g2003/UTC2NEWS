@@ -94,15 +94,15 @@ export class CmsService {
     if (useHybrid && useChunks) {
       return await this.searchService.hybridSearchWithChunks(query, limit);
     }
-    
+
     if (useChunks) {
       return await this.searchService.searchWithChunks(query, limit);
     }
-    
+
     if (useHybrid) {
       return await this.searchService.hybridSearch(query, limit);
     }
-    
+
     return await this.searchService.search(query, limit);
   }
 
@@ -160,7 +160,15 @@ export class CmsService {
 
     return await this.prisma.post.findMany({
       where,
-      include: {
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        excerpt: true,
+        featuredImage: true,
+        status: true,
+        publishedAt: true,
+        createdAt: true,
         category: true,
         author: {
           select: {

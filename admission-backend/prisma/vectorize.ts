@@ -24,15 +24,25 @@ async function main() {
         taskType: TaskType.RETRIEVAL_DOCUMENT,
     });
 
-    // Fetch posts without embeddings or all posts to be safe/update
-    // Here we just fetch published posts for efficiency
+    // Fetch ONLY published posts WITHOUT embeddings (Raw SQL for vector field)
+    const postsToIndex = await prisma.$queryRawUnsafe<{ id: string }[]>(
+        "SELECT id FROM posts WHERE status = 'published' AND embedding IS NULL"
+    );
+
+    const ids = postsToIndex.map(p => p.id);
+
+    if (ids.length === 0) {
+        console.log('✨ All published posts already have embeddings. Done!');
+        return;
+    }
+
     const posts = await prisma.post.findMany({
         where: {
-            status: 'published'
+            id: { in: ids }
         }
     });
 
-    console.log(`Found ${posts.length} published posts to process.`);
+    console.log(`Found ${posts.length} new published posts to process.`);
 
     let successCount = 0;
     let failCount = 0;
@@ -55,11 +65,13 @@ async function main() {
             console.log(`  ✅ Vectorized successfully.`);
             successCount++;
 
-            // Small delay to avoid rate limits
-            await new Promise(r => setTimeout(r, 500));
+            // Wait 4 seconds for Gemini Free tier (max 15 RPM)
+            await new Promise(r => setTimeout(r, 4000));
         } catch (error) {
-            console.error(`  ❌ Failed to verify post ${post.id}:`, error);
+            console.error(`  ❌ Failed to vectorize post ${post.id}:`, error);
             failCount++;
+            // Wait longer on error
+            await new Promise(r => setTimeout(r, 10000));
         }
     }
 

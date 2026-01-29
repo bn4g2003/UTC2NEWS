@@ -15,8 +15,9 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
     ],
-    // Disable image optimization for localhost development
-    unoptimized: process.env.NODE_ENV === 'development',
+    // Force unoptimized to true to show original URLs (MinIO port 9000)
+    // and avoid Docker internal resolution issues
+    unoptimized: true,
   },
 };
 
