@@ -187,6 +187,28 @@ export class ProgramService {
 
   async deleteSession(id: string) {
     try {
+      // Check if session has applications
+      const applicationsCount = await this.prisma.application.count({
+        where: { sessionId: id },
+      });
+
+      if (applicationsCount > 0) {
+        throw new ConflictException(
+          `Cannot delete session with ${applicationsCount} existing application(s). Please delete or reassign applications first.`,
+        );
+      }
+
+      // Check if session has quotas
+      const quotasCount = await this.prisma.sessionQuota.count({
+        where: { sessionId: id },
+      });
+
+      if (quotasCount > 0) {
+        throw new ConflictException(
+          `Cannot delete session with ${quotasCount} existing quota(s). Please delete quotas first.`,
+        );
+      }
+
       return await this.prisma.admissionSession.delete({
         where: { id },
       });

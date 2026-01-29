@@ -13,9 +13,12 @@ export class MinioStorageService implements OnModuleInit {
   private readonly logger = new Logger(MinioStorageService.name);
   private minioClient: Minio.Client;
   private readonly bucketName: string;
+  private readonly publicEndpoint: string;
 
   constructor() {
     this.bucketName = process.env.MINIO_BUCKET_NAME || 'admission-files';
+    // Public endpoint for browser access (defaults to localhost for development)
+    this.publicEndpoint = process.env.MINIO_PUBLIC_ENDPOINT || 'localhost:9000';
 
     this.minioClient = new Minio.Client({
       endPoint: process.env.MINIO_ENDPOINT || 'localhost',
@@ -43,6 +46,26 @@ export class MinioStorageService implements OnModuleInit {
         } else {
           this.logger.log(`Bucket ${this.bucketName} already exists`);
         }
+
+        // Set bucket policy to allow public read access
+        const policy = {
+          Version: '2012-10-17',
+          Statement: [
+            {
+              Effect: 'Allow',
+              Principal: { AWS: ['*'] },
+              Action: ['s3:GetObject'],
+              Resource: [`arn:aws:s3:::${this.bucketName}/*`],
+            },
+          ],
+        };
+
+        await this.minioClient.setBucketPolicy(
+          this.bucketName,
+          JSON.stringify(policy),
+        );
+        this.logger.log(`Bucket policy set to allow public read access`);
+
         this.logger.log(`MinIO storage initialized successfully (${endpoint}:${port})`);
         return; // Success, exit the loop
       } catch (error) {
@@ -77,9 +100,13 @@ export class MinioStorageService implements OnModuleInit {
         metadata,
       );
 
-      const url = await this.generatePresignedUrl(fileKey, 7 * 24 * 60 * 60); // 7 days
+      // Generate public URL instead of presigned URL
+      const useSSL = process.env.MINIO_USE_SSL === 'true';
+      const protocol = useSSL ? 'https' : 'http';
+      const url = `${protocol}://${this.publicEndpoint}/${this.bucketName}/${fileKey}`;
 
       this.logger.log(`File uploaded successfully: ${fileKey}`);
+      this.logger.log(`Public URL: ${url}`);
 
       return {
         fileKey,
@@ -126,7 +153,43 @@ export class MinioStorageService implements OnModuleInit {
         fileKey,
         expirySeconds,
       );
-      return url;
+      
+      this.logger.log(`Original MinIO URL: ${url}`);
+      
+      // Replace internal Docker hostname with public endpoint for browser access
+      const useSSL = process.env.MINIO_USE_SSL === 'true';
+      const protocol = useSSL ? 'https' : 'http';
+      const internalEndpoint = process.env.MINIO_ENDPOINT || 'localhost';
+      const internalPort = process.env.MINIO_PORT || '9000';
+      
+      // Try multiple replacement patterns to handle different URL formats
+      let publicUrl = url;
+      
+      // Pattern 1: http://minio:9000/...
+      publicUrl = publicUrl.replace(
+        `${protocol}://${internalEndpoint}:${internalPort}`,
+        `${protocol}://${this.publicEndpoint}`
+      );
+      
+      // Pattern 2: minio:9000/... (missing protocol)
+      publicUrl = publicUrl.replace(
+        `${internalEndpoint}:${internalPort}`,
+        this.publicEndpoint
+      );
+      
+      // Pattern 3: minio9000/... (missing colon)
+      publicUrl = publicUrl.replace(
+        `${internalEndpoint}${internalPort}`,
+        this.publicEndpoint
+      );
+      
+      // Ensure URL has protocol
+      if (!publicUrl.startsWith('http://') && !publicUrl.startsWith('https://')) {
+        publicUrl = `${protocol}://${publicUrl}`;
+      }
+      
+      this.logger.log(`Public URL: ${publicUrl}`);
+      return publicUrl;
     } catch (error) {
       this.logger.error(`Error generating presigned URL: ${error.message}`, error.stack);
       throw error;

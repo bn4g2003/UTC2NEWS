@@ -75,6 +75,7 @@ services:
       # Update host to 'minio'
       MINIO_ENDPOINT: minio
       MINIO_PORT: 9000
+      MINIO_PUBLIC_ENDPOINT: localhost:9000
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin123
       MINIO_BUCKET_NAME: admission-files
